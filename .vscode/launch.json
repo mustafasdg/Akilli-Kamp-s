@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Mobil (Expo Start)",
+            "type": "node",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/mobile",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "web"
+            ],
+            "console": "integratedTerminal"
+        }
+    ]
+}

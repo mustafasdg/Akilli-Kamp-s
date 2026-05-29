@@ -1,0 +1,27 @@
+# ── Visual Studio ──────────────────────────────────────────
+.vs/
+*.user
+
+# ── .NET build çıktıları ────────────────────────────────────
+**/bin/
+**/obj/
+
+# ── SQLite veritabanı ───────────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
+
+# ── Veri koruma anahtarları (gizli) ────────────────────────
+SmartCampus.Api/data-protection-keys/
+
+# ── Node / Expo ─────────────────────────────────────────────
+node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+
+# ── Genel ───────────────────────────────────────────────────
+.DS_Store
+*.log
+*.orig

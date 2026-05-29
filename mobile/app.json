@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Smart Campus",
+    "slug": "smartcampus-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "smartcampus",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "local.smartcampus.mobile"
+    },
+    "android": {
+      "package": "local.smartcampus.mobile",
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Duyurular Tablosu
+model Announcement {
+  id        Int      @id @default(autoincrement())
+  title     String
+  content   String
+  date      DateTime @default(now())
+  category  String
+}
+
+// Yemekhane Menüleri Tablosu
+model Menu {
+  id       Int      @id @default(autoincrement())
+  date     DateTime
+  meal1    String
+  meal2    String
+  meal3    String
+  calories Int
+}
+
+// Kampüs Haritası Koordinatları
+model Location {
+  id           Int    @id @default(autoincrement())
+  buildingName String
+  latitude     Float
+  longitude    Float
+  description  String
+}

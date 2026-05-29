@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Akıllı Kampüs Yönetim Paneli</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="dashboard">
+    <header class="glass-header">
+      <h1>Akıllı Kampüs Admin</h1>
+    </header>
+    <main>
+      <section class="card form-section">
+        <h2>Yeni Duyuru Ekle</h2>
+        <form id="announcementForm">
+          <input type="text" id="title" placeholder="Başlık" required>
+          <input type="text" id="category" placeholder="Kategori" required>
+          <textarea id="content" placeholder="Duyuru İçeriği" rows="4" required></textarea>
+          <button type="submit">Duyuru Yayınla (Push Gönderir)</button>
+        </form>
+      </section>
+
+      <section class="card form-section" style="margin-top: 20px;">
+        <h2>Yeni Yemek Menüsü Ekle</h2>
+        <form id="menuForm">
+          <input type="date" id="menuDate" required>
+          <input type="text" id="meal1" placeholder="1. Çeşit Yemek" required>
+          <input type="text" id="meal2" placeholder="2. Çeşit Yemek" required>
+          <input type="text" id="meal3" placeholder="3. Çeşit Yemek" required>
+          <input type="number" id="calories" placeholder="Toplam Kalori (Örn: 850)" required>
+          <button type="submit">Menüyü Kaydet</button>
+        </form>
+      </section>
+
+      <section class="card form-section" style="margin-top: 20px;">
+        <h2>Yeni Konum (Bina) Ekle</h2>
+        <form id="locationForm">
+          <input type="text" id="buildingName" placeholder="Bina Adı" required>
+          <input type="number" step="any" id="latitude" placeholder="Enlem (Latitude)" required>
+          <input type="number" step="any" id="longitude" placeholder="Boylam (Longitude)" required>
+          <textarea id="description" placeholder="Açıklama" rows="2" required></textarea>
+          <button type="submit">Konumu Kaydet</button>
+        </form>
+      </section>
+    </main>
+  </div>
+  <script src="admin.js"></script>
+</body>
+</html>
