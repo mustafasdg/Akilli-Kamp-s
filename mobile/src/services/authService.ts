@@ -16,4 +16,13 @@ export const authService = {
     const res = await apiClient.get<User>('/auth/me');
     return res.data;
   },
+
+  updateProfile: async (name: string): Promise<User> => {
+    const res = await apiClient.patch<User>('/auth/profile', { name });
+    return res.data;
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
+    await apiClient.patch('/auth/password', { currentPassword, newPassword });
+  },
 };

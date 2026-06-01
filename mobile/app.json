@@ -1,25 +1,32 @@
 {
   "expo": {
-    "name": "Smart Campus",
-    "slug": "smartcampus-mobile",
+    "name": "ISUBÜ Akıllı Kampüs",
+    "slug": "isubu-akilli-kampus",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "smartcampus",
+    "scheme": "isubu",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "icon": "./assets/images/logo-icon.png",
+    "splash": {
+      "image": "./assets/images/logo-full.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "local.smartcampus.mobile"
+      "bundleIdentifier": "tr.edu.isubu.akillikampus"
     },
     "android": {
-      "package": "local.smartcampus.mobile",
+      "package": "tr.edu.isubu.akillikampus",
       "edgeToEdgeEnabled": true
     },
     "web": {
       "bundler": "metro"
     },
     "plugins": [
-      "expo-asset"
+      "expo-asset",
+      "expo-notifications"
     ]
   }
 }

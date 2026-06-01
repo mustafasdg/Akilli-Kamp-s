@@ -19,5 +19,9 @@ namespace SmartCampus.Api.Models
         public string PasswordHash { get; set; } = string.Empty;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        /// <summary>"user" veya "admin"</summary>
+        [MaxLength(20)]
+        public string Role { get; set; } = "user";
     }
 }

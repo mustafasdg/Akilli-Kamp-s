@@ -18,21 +18,35 @@ namespace SmartCampus.Api.Services
 
         private static void SeedUsers(ApplicationDbContext context, IPasswordHasher<User> passwordHasher)
         {
-            if (context.Users.Any())
+            // Admin yoksa ekle
+            if (!context.Users.Any(u => u.Email == "admin@smartcampus.local"))
             {
-                return;
+                var adminUser = new User
+                {
+                    Name = "Admin",
+                    Email = "admin@smartcampus.local",
+                    Role = "admin",
+                    CreatedAt = DateTime.UtcNow
+                };
+                adminUser.PasswordHash = passwordHasher.HashPassword(adminUser, "Admin123!");
+                context.Users.Add(adminUser);
+                context.SaveChanges();
             }
 
-            var demoUser = new User
+            // Demo kullanıcı yoksa ekle
+            if (!context.Users.Any(u => u.Email == "demo@smartcampus.local"))
             {
-                Name = "Demo Kullanici",
-                Email = "demo@smartcampus.local",
-                CreatedAt = DateTime.UtcNow
-            };
-            demoUser.PasswordHash = passwordHasher.HashPassword(demoUser, "SmartCampus123!");
-
-            context.Users.Add(demoUser);
-            context.SaveChanges();
+                var demoUser = new User
+                {
+                    Name = "Demo Kullanici",
+                    Email = "demo@smartcampus.local",
+                    Role = "user",
+                    CreatedAt = DateTime.UtcNow
+                };
+                demoUser.PasswordHash = passwordHasher.HashPassword(demoUser, "SmartCampus123!");
+                context.Users.Add(demoUser);
+                context.SaveChanges();
+            }
         }
 
         private static void SeedLocations(ApplicationDbContext context)

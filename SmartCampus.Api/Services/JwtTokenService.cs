@@ -28,6 +28,7 @@ namespace SmartCampus.Api.Services
                 new(ClaimTypes.NameIdentifier, user.ID.ToString()),
                 new(ClaimTypes.Name, user.Name),
                 new(ClaimTypes.Email, user.Email),
+                new(ClaimTypes.Role, user.Role),
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
@@ -47,7 +48,8 @@ namespace SmartCampus.Api.Services
                     Id = user.ID,
                     Name = user.Name,
                     Email = user.Email,
-                    CreatedAt = user.CreatedAt
+                    CreatedAt = user.CreatedAt,
+                    Role = user.Role
                 }
             };
         }

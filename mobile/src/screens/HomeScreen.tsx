@@ -7,18 +7,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { CompositeNavigationProp } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useHomeData } from '../hooks/useHomeData';
 import { useWeather, getWeatherDescription } from '../hooks/useWeather';
 import { Announcement, Menu } from '../types/models';
+import { useColors } from '../context/ThemeContext';
 import colors from '../theme/colors';
 import { AppTabParamList } from '../navigation/AppTabs';
+import { AppRootParamList } from '../navigation/RootNavigator';
+import UserAvatar from '../components/UserAvatar';
+import { formatName } from '../utils/avatarUtils';
+import { useNotifications } from '../hooks/useNotifications';
 
-type NavProp = BottomTabNavigationProp<AppTabParamList>;
+type NavProp = CompositeNavigationProp<
+  BottomTabNavigationProp<AppTabParamList>,
+  NativeStackNavigationProp<AppRootParamList>
+>;
 
 export default function HomeScreen() {
   const { user } = useAuth();
+  const colors = useColors();
   const navigation = useNavigation<NavProp>();
+  useNotifications();
   const { announcements, todayMenu, locations, isLoading, error, refresh } = useHomeData();
   const { weather } = useWeather(37.7648, 30.5566);
 
@@ -33,7 +45,7 @@ export default function HomeScreen() {
     : { label: '—', emoji: '🌤️' };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
@@ -41,18 +53,30 @@ export default function HomeScreen() {
           <RefreshControl refreshing={isLoading} onRefresh={refresh} tintColor={colors.primary} />
         }
       >
-        {/* ── 1. Header ──────────────────────────────────────── */}
+        {/* ── 1. Header (standart app düzeni) ─────────────────── */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>{greeting} 👋</Text>
-            <Text style={styles.userName}>{user?.name}</Text>
-            <Text style={styles.date}>{dateStr}</Text>
+          {/* Sol: Avatar → Profil */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Profile')}
+            activeOpacity={0.8}
+          >
+            <UserAvatar name={user?.name ?? '?'} size={46} />
+          </TouchableOpacity>
+
+          {/* Orta: Selamlama + İsim */}
+          <View style={styles.headerCenter}>
+            <Text style={styles.greeting} numberOfLines={1}>{greeting} 👋</Text>
+            <Text style={styles.userName} numberOfLines={1}>{formatName(user?.name ?? '')}</Text>
           </View>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>
-              {user?.name?.charAt(0).toUpperCase() ?? '?'}
-            </Text>
-          </View>
+
+          {/* Sağ: Bildirim */}
+          <TouchableOpacity
+            style={styles.bellBtn}
+            onPress={() => navigation.navigate('Announcements')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="notifications-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
         </View>
 
         {/* ── 2. Hava Durumu Şeridi ──────────────────────────── */}
@@ -136,10 +160,10 @@ export default function HomeScreen() {
           announcements.map(a => (
             <TouchableOpacity
               key={a.id}
-              onPress={() => navigation.navigate('Announcements')}
+              onPress={() => navigation.navigate('AnnouncementDetail', { item: a })}
               activeOpacity={0.85}
             >
-              <AnnouncementCard item={a} />
+              <AnnouncementCard item={a} colors={colors} />
             </TouchableOpacity>
           ))
         )}
@@ -171,8 +195,8 @@ function SectionHeader({
   );
 }
 
-function AnnouncementCard({ item }: { item: Announcement }) {
-  const badge = getBadgeStyle(item.kategori);
+function AnnouncementCard({ item, colors }: { item: Announcement; colors: any }) {
+  const badge = getBadgeStyle(item.kategori, colors);
   const dateStr = new Date(item.tarih).toLocaleDateString('tr-TR', {
     day: 'numeric', month: 'short',
   });
@@ -200,53 +224,54 @@ function EmptyCard({ text }: { text: string }) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getBadgeStyle(kategori: string) {
+function getBadgeStyle(kategori: string, c: any) {
   const k = (kategori ?? '').toLowerCase();
-  if (k.includes('akademik')) return colors.badge.akademik;
-  if (k.includes('spor'))     return colors.badge.spor;
-  if (k.includes('sosyal'))   return colors.badge.sosyal;
-  if (k.includes('duyuru'))   return colors.badge.duyuru;
-  return colors.badge.genel;
+  if (k.includes('akademik')) return c.badge.akademik;
+  if (k.includes('spor'))     return c.badge.spor;
+  if (k.includes('sosyal'))   return c.badge.sosyal;
+  if (k.includes('duyuru'))   return c.badge.duyuru;
+  return c.badge.genel;
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: '#F1F5F9' },
   container: { paddingBottom: 32, gap: 12 },
 
-  // 1. Header
+  // 1. Header (standart app düzeni)
   header: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 14,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
+  headerCenter: { flex: 1 },
   greeting:  { fontSize: 13, color: colors.textMuted, fontWeight: '500' },
-  userName:  { fontSize: 22, fontWeight: '700', color: colors.text, marginTop: 2 },
-  date:      { fontSize: 12, color: colors.textSecondary, marginTop: 3 },
-  avatarCircle: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center',
+  userName:  { fontSize: 18, fontWeight: '700', color: colors.text, marginTop: 1 },
+  bellBtn: {
+    width: 42, height: 42, borderRadius: 21,
+    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: colors.primaryLight,
   },
-  avatarText: { fontSize: 18, fontWeight: '700', color: '#fff' },
 
-  // 2. Hava durumu şeridi
+  // 2. Hava durumu şeridi (açık mavi)
   weatherStrip: {
     marginHorizontal: 20,
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: colors.surface,
+    backgroundColor: '#E3F0FB',
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11,
-    borderWidth: 1, borderColor: colors.border,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 3, elevation: 2,
+    borderWidth: 1, borderColor: '#C5DDF2',
+    shadowColor: '#1E3A5F', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08, shadowRadius: 3, elevation: 2,
   },
   weatherEmoji: { fontSize: 22 },
   weatherInfo: { flexDirection: 'row', alignItems: 'baseline', gap: 5 },
-  weatherTemp: { fontSize: 16, fontWeight: '800', color: colors.text },
-  weatherLabel: { fontSize: 13, color: colors.textSecondary },
-  weatherDivider: { width: 1, height: 16, backgroundColor: colors.border, marginHorizontal: 2 },
-  weatherWind: { fontSize: 13, color: colors.textSecondary },
-  weatherCity: { fontSize: 13, color: colors.textMuted, flex: 1, textAlign: 'right' },
+  weatherTemp: { fontSize: 16, fontWeight: '800', color: '#15324F' },
+  weatherLabel: { fontSize: 13, color: '#3A5A7A' },
+  weatherDivider: { width: 1, height: 16, backgroundColor: '#B3CFE8', marginHorizontal: 2 },
+  weatherWind: { fontSize: 13, color: '#3A5A7A' },
+  weatherCity: { fontSize: 13, color: '#5A7A98', flex: 1, textAlign: 'right' },
 
   // 3. Yan yana kartlar
   cardRow: { flexDirection: 'row', gap: 12, marginHorizontal: 20 },

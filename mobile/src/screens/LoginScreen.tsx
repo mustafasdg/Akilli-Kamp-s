@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, KeyboardAvoidingView, Platform, Alert, ScrollView,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
+  ScrollView, Image, Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { AuthStackParamList } from '../navigation/RootNavigator';
-import colors from '../theme/colors';
+import { useColors, useTheme } from '../context/ThemeContext';
+
+const { width } = Dimensions.get('window');
+
+const campusBuilding = require('../../assets/images/campus-building.png');
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export default function LoginScreen({ navigation }: Props) {
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const colors = useColors();
+  const { isDark } = useTheme();
+  const [email, setEmail]         = useState('');
+  const [password, setPassword]   = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
@@ -41,58 +48,95 @@ export default function LoginScreen({ navigation }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <Text style={styles.logo}>🎓</Text>
-          <Text style={styles.appName}>Akıllı Kampüs</Text>
-          <Text style={styles.subtitle}>Hesabınıza giriş yapın</Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Üst başlık ── */}
+        <View style={[styles.header, { backgroundColor: colors.primary }]}>
+          <Text style={styles.stripeApp}>
+            <Text style={styles.stripeAppBold}>AKILLI </Text>
+            <Text style={styles.stripeAppLight}>KAMPÜS</Text>
+          </Text>
         </View>
 
-        <View style={styles.card}>
-          <Field
-            label="E-posta"
-            value={email}
-            onChangeText={v => { setEmail(v); setErrors(e => ({ ...e, email: undefined })); }}
-            placeholder="ornek@universite.edu.tr"
-            keyboardType="email-address"
-            error={errors.email}
-            editable={!isSubmitting}
-          />
-          <Field
-            label="Şifre"
-            value={password}
-            onChangeText={v => { setPassword(v); setErrors(e => ({ ...e, password: undefined })); }}
-            placeholder="••••••••"
-            secureTextEntry
-            error={errors.password}
-            editable={!isSubmitting}
-          />
+        {/* ── Form alanı (dikeyde ortalı) ── */}
+        <View style={styles.formWrap}>
+          <Text style={[styles.formTitle, { color: colors.text }]}>Hesabınıza giriş yapın</Text>
+
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Field
+              label="E-posta"
+              value={email}
+              onChangeText={v => { setEmail(v); setErrors(e => ({ ...e, email: undefined })); }}
+              placeholder="ornek@universite.edu.tr"
+              keyboardType="email-address"
+              error={errors.email}
+              editable={!isSubmitting}
+              colors={colors}
+            />
+            <Field
+              label="Şifre"
+              value={password}
+              onChangeText={v => { setPassword(v); setErrors(e => ({ ...e, password: undefined })); }}
+              placeholder="••••••••"
+              secureTextEntry
+              error={errors.password}
+              editable={!isSubmitting}
+              colors={colors}
+            />
+
+            <TouchableOpacity
+              style={[styles.loginBtn, { backgroundColor: colors.primary }, isSubmitting && styles.btnDisabled]}
+              onPress={handleLogin}
+              disabled={isSubmitting}
+              activeOpacity={0.85}
+            >
+              {isSubmitting
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.loginBtnText}>Giriş Yap</Text>
+              }
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
-            style={[styles.primaryBtn, isSubmitting && styles.btnDisabled]}
-            onPress={handleLogin}
-            disabled={isSubmitting}
-            activeOpacity={0.8}
+            onPress={() => navigation.navigate('ForgotPassword')}
+            style={styles.forgotRow}
           >
-            {isSubmitting
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.primaryBtnText}>Giriş Yap</Text>
-            }
+            <Text style={[styles.link, { color: colors.primary }]}>Şifremi Unuttum</Text>
           </TouchableOpacity>
+
+          <View style={styles.registerRow}>
+            <Text style={[styles.registerText, { color: colors.textSecondary }]}>
+              Hesabınız yok mu?{' '}
+            </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+              <Text style={[styles.link, { color: colors.primary }]}>Kayıt Ol</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.switchRow}>
-          <Text style={styles.switchText}>Hesabınız yok mu? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.switchLink}>Kayıt Ol</Text>
-          </TouchableOpacity>
+        {/* ── Alt: Bina çizimi (şeffaf zemin, tema rengiyle) ── */}
+        <View style={styles.bannerWrap}>
+          <Image
+            source={campusBuilding}
+            style={[styles.bannerImg, { tintColor: colors.primary }]}
+            resizeMode="contain"
+          />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
+/* ── Field bileşeni ───────────────────────────────────────── */
 type FieldProps = {
   label: string; value: string;
   onChangeText: (v: string) => void;
@@ -100,39 +144,34 @@ type FieldProps = {
   secureTextEntry?: boolean;
   keyboardType?: 'default' | 'email-address';
   error?: string; editable?: boolean;
+  colors: ReturnType<typeof useColors>;
 };
 
-function Field({ label, error, ...rest }: FieldProps) {
+function Field({ label, error, colors, ...rest }: FieldProps) {
   return (
-    <View style={fieldStyles.group}>
-      <Text style={fieldStyles.label}>{label}</Text>
+    <View style={fs.group}>
+      <Text style={[fs.label, { color: colors.textSecondary }]}>{label}</Text>
       <TextInput
-        style={[fieldStyles.input, error ? fieldStyles.inputError : null]}
+        style={[fs.input, {
+          backgroundColor: colors.surfaceAlt,
+          borderColor: error ? colors.error : colors.border,
+          color: colors.text,
+        }]}
         placeholderTextColor={colors.textMuted}
         autoCapitalize="none"
         autoCorrect={false}
         {...rest}
       />
-      {error ? <Text style={fieldStyles.error}>{error}</Text> : null}
+      {error ? <Text style={[fs.err, { color: colors.error }]}>{error}</Text> : null}
     </View>
   );
 }
 
-const fieldStyles = StyleSheet.create({
+const fs = StyleSheet.create({
   group: { gap: 6 },
-  label: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
-  input: {
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.text,
-  },
-  inputError: { borderColor: colors.error },
-  error: { fontSize: 12, color: colors.error },
+  label: { fontSize: 13, fontWeight: '600' },
+  input: { borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
+  err:   { fontSize: 12 },
 });
 
 function extractMessage(err: unknown, fallback: string) {
@@ -144,40 +183,56 @@ function extractMessage(err: unknown, fallback: string) {
   return fallback;
 }
 
+/* ── Stiller ─────────────────────────────────────────────── */
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
-  container: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 48 },
+  scroll: { flexGrow: 1 },
 
-  header: { alignItems: 'center', marginBottom: 32 },
-  logo: { fontSize: 56, marginBottom: 12 },
-  appName: { fontSize: 28, fontWeight: '700', color: colors.text, letterSpacing: 0.3 },
-  subtitle: { fontSize: 14, color: colors.textSecondary, marginTop: 6 },
+  /* Üst lacivert başlık */
+  header: {
+    paddingTop: 56,
+    paddingBottom: 20,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    gap: 6,
+  },
+  stripeApp:      { flexDirection: 'row' },
+  stripeAppBold:  { color: '#fff', fontSize: 26, fontWeight: '900', letterSpacing: 3 },
+  stripeAppLight: { color: 'rgba(255,255,255,0.88)', fontSize: 26, fontWeight: '300', letterSpacing: 3 },
+
+  /* Bina banner (alt, şeffaf zemin) */
+  bannerWrap: { width: '100%', alignItems: 'center', paddingBottom: 32 },
+  bannerImg: {
+    width: width,
+    height: width * 0.286,   // görsel oranı 419x120
+    opacity: 0.85,
+  },
+
+  /* Form (dikeyde ortalı) */
+  formWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    gap: 16,
+  },
+  formTitle: { fontSize: 16, fontWeight: '600', textAlign: 'center', marginBottom: 4 },
 
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 24,
-    gap: 20,
+    borderRadius: 16, padding: 24, gap: 20,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 6, elevation: 3,
   },
 
-  primaryBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 4,
+  loginBtn: {
+    borderRadius: 10, paddingVertical: 14,
+    alignItems: 'center', marginTop: 4,
   },
-  btnDisabled: { opacity: 0.6 },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  btnDisabled:  { opacity: 0.6 },
+  loginBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
 
-  switchRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
-  switchText: { color: colors.textSecondary, fontSize: 14 },
-  switchLink: { color: colors.primary, fontSize: 14, fontWeight: '600' },
+  forgotRow:    { alignItems: 'center' },
+  registerRow:  { flexDirection: 'row', justifyContent: 'center' },
+  registerText: { fontSize: 14 },
+  link:         { fontSize: 14, fontWeight: '600' },
 });

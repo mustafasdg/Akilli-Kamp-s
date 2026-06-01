@@ -1,15 +1,24 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Alert,
+  ScrollView, Alert, Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
-import colors from '../theme/colors';
+import { useTheme, useColors } from '../context/ThemeContext';
+import UserAvatar from '../components/UserAvatar';
+import { formatName } from '../utils/avatarUtils';
+import { AppRootParamList } from '../navigation/RootNavigator';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const navigation = useNavigation<NativeStackNavigationProp<AppRootParamList>>();
 
   const handleLogout = () => {
     Alert.alert(
@@ -28,21 +37,23 @@ export default function ProfileScreen() {
       })
     : '—';
 
-  // Baş harflerden avatar rengi üret (sabit ama kişiye özgü hissettirsin)
-  const avatarColor = stringToColor(user?.name ?? '');
-
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
 
         {/* ── Hero alanı ─────────────────────────────────────── */}
         <View style={styles.hero}>
-          <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-            <Text style={styles.avatarText}>
-              {getInitials(user?.name ?? '?')}
-            </Text>
+          <View style={styles.avatarWrapper}>
+            <UserAvatar name={user?.name ?? '?'} size={84} />
+            <TouchableOpacity
+              style={styles.editBadge}
+              onPress={() => navigation.navigate('EditProfile')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="pencil" size={13} color="#fff" />
+            </TouchableOpacity>
           </View>
-          <Text style={styles.name}>{user?.name}</Text>
+          <Text style={styles.name}>{formatName(user?.name ?? '')}</Text>
           <View style={styles.emailRow}>
             <Ionicons name="mail-outline" size={14} color={colors.textMuted} />
             <Text style={styles.email}>{user?.email}</Text>
@@ -65,7 +76,7 @@ export default function ProfileScreen() {
           <InfoRow
             icon="person-outline"
             label="Ad Soyad"
-            value={user?.name ?? '—'}
+            value={formatName(user?.name ?? '—')}
           />
           <Divider />
           <InfoRow
@@ -73,11 +84,33 @@ export default function ProfileScreen() {
             label="E-posta"
             value={user?.email ?? '—'}
           />
+          <Divider />
+          <ActionRow
+            icon="create-outline"
+            label="Profili Düzenle"
+            onPress={() => navigation.navigate('EditProfile')}
+          />
         </View>
 
         {/* ── Uygulama ───────────────────────────────────────── */}
         <SectionLabel title="Uygulama" />
         <View style={styles.card}>
+          {/* Dark Mode toggle */}
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <View style={styles.iconBox}>
+                <Ionicons name={isDark ? 'moon' : 'sunny-outline'} size={17} color={colors.primary} />
+              </View>
+              <Text style={styles.rowLabel}>Karanlık Tema</Text>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#fff"
+            />
+          </View>
+          <Divider />
           <ActionRow icon="notifications-outline" label="Bildirimler" />
           <Divider />
           <ActionRow icon="information-circle-outline" label="Hakkında" />
@@ -99,11 +132,13 @@ export default function ProfileScreen() {
 // ─── Alt bileşenler ───────────────────────────────────────────────────────────
 
 function SectionLabel({ title }: { title: string }) {
-  return <Text style={styles.sectionLabel}>{title}</Text>;
+  const c = useColors(); const s = makeStyles(c);
+  return <Text style={s.sectionLabel}>{title}</Text>;
 }
 
 function Divider() {
-  return <View style={styles.divider} />;
+  const c = useColors(); const s = makeStyles(c);
+  return <View style={s.divider} />;
 }
 
 function InfoRow({
@@ -113,130 +148,105 @@ function InfoRow({
   label: string;
   value: string;
 }) {
+  const c = useColors(); const s = makeStyles(c);
   return (
-    <View style={styles.row}>
-      <View style={styles.rowLeft}>
-        <View style={styles.iconBox}>
-          <Ionicons name={icon} size={17} color={colors.primary} />
+    <View style={s.row}>
+      <View style={s.rowLeft}>
+        <View style={s.iconBox}>
+          <Ionicons name={icon} size={17} color={c.primary} />
         </View>
-        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={s.rowLabel}>{label}</Text>
       </View>
-      <Text style={styles.rowValue} numberOfLines={1}>{value}</Text>
+      <Text style={s.rowValue} numberOfLines={1}>{value}</Text>
     </View>
   );
 }
 
 function ActionRow({
-  icon, label,
+  icon, label, onPress,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
+  onPress?: () => void;
 }) {
+  const c = useColors();
+  const styles = makeStyles(c);
   return (
-    <TouchableOpacity style={styles.row} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={onPress}>
       <View style={styles.rowLeft}>
         <View style={styles.iconBox}>
-          <Ionicons name={icon} size={17} color={colors.primary} />
+          <Ionicons name={icon} size={17} color={c.primary} />
         </View>
         <Text style={styles.rowLabel}>{label}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+      <Ionicons name="chevron-forward" size={16} color={c.textMuted} />
     </TouchableOpacity>
   );
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(' ');
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function stringToColor(str: string): string {
-  const palette = [
-    '#1D4ED8', '#0F766E', '#7C3AED', '#B45309',
-    '#0369A1', '#BE185D', '#15803D', '#C2410C',
-  ];
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  return palette[Math.abs(hash) % palette.length];
-}
-
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+const makeStyles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.background },
   container: { paddingBottom: 40 },
 
-  // Hero
   hero: {
-    alignItems: 'center',
-    paddingTop: 32, paddingBottom: 28,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-    gap: 6,
+    alignItems: 'center', paddingTop: 32, paddingBottom: 28,
+    backgroundColor: c.surface,
+    borderBottomWidth: 1, borderBottomColor: c.border, gap: 6,
   },
-  avatar: {
-    width: 84, height: 84, borderRadius: 42,
+  avatarWrapper: { position: 'relative', marginBottom: 8 },
+  editBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: c.primary,
     justifyContent: 'center', alignItems: 'center',
-    marginBottom: 8,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15, shadowRadius: 6, elevation: 4,
+    borderWidth: 2, borderColor: c.surface,
   },
-  avatarText: { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: 1 },
-  name: { fontSize: 22, fontWeight: '700', color: colors.text },
+  name: { fontSize: 22, fontWeight: '700', color: c.text },
   emailRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  email: { fontSize: 14, color: colors.textSecondary },
+  email: { fontSize: 14, color: c.textSecondary },
   memberBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: colors.primaryLight,
-    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5,
-    marginTop: 4,
+    backgroundColor: c.primaryLight,
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, marginTop: 4,
   },
-  memberText: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  memberText: { fontSize: 12, fontWeight: '600', color: c.primary },
 
-  // Section label
   sectionLabel: {
-    fontSize: 12, fontWeight: '700', color: colors.textMuted,
+    fontSize: 12, fontWeight: '700', color: c.textMuted,
     textTransform: 'uppercase', letterSpacing: 0.8,
     marginTop: 24, marginBottom: 8, marginHorizontal: 20,
   },
 
-  // Card
   card: {
-    marginHorizontal: 20,
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1, borderColor: colors.border,
+    marginHorizontal: 20, backgroundColor: c.surface,
+    borderRadius: 14, borderWidth: 1, borderColor: c.border,
     overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05, shadowRadius: 3, elevation: 2,
   },
-  divider: { height: 1, backgroundColor: colors.borderLight, marginLeft: 56 },
+  divider: { height: 1, backgroundColor: c.borderLight, marginLeft: 56 },
 
-  // Row
   row: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
   },
   rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   iconBox: {
     width: 32, height: 32, borderRadius: 8,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: c.primaryLight,
     justifyContent: 'center', alignItems: 'center',
   },
-  rowLabel: { fontSize: 15, color: colors.text, fontWeight: '500' },
-  rowValue: { fontSize: 14, color: colors.textSecondary, maxWidth: '45%', textAlign: 'right' },
+  rowLabel: { fontSize: 15, color: c.text, fontWeight: '500' },
+  rowValue: { fontSize: 14, color: c.textSecondary, maxWidth: '45%', textAlign: 'right' },
 
-  // Logout
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     marginHorizontal: 20, marginTop: 28,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: 14, paddingVertical: 15,
-    borderWidth: 1.5, borderColor: colors.error,
+    borderWidth: 1.5, borderColor: c.error,
   },
-  logoutText: { fontSize: 15, fontWeight: '700', color: colors.error },
+  logoutText: { fontSize: 15, fontWeight: '700', color: c.error },
 });

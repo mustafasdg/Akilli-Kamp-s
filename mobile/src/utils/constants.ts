@@ -5,4 +5,4 @@ export const TOKEN_KEY = 'auth_token';
  * Gerçek port: 5206  (launchSettings.json → applicationUrl)
  * Fiziksel cihaz + bilgisayar aynı Wi-Fi'da olmalı.
  */
-export const API_BASE_URL = 'http://172.20.10.4:5206/api';
+export const API_BASE_URL = 'http://192.168.137.1:5206/api';
