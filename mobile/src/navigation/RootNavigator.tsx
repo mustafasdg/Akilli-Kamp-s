@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
-import OnboardingScreen, { ONBOARDING_KEY } from '../screens/OnboardingScreen';
 import AnnouncementDetailScreen from '../screens/AnnouncementDetailScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import AppTabs from './AppTabs';
@@ -56,22 +54,13 @@ function AppNavigator() {
 
 export default function RootNavigator() {
   const { user, isLoading } = useAuth();
-  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    AsyncStorage.getItem(ONBOARDING_KEY).then(val => setOnboardingDone(val === 'true'));
-  }, []);
-
-  if (isLoading || onboardingDone === null) {
+  if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#3B82F6" />
+      <View style={{ flex: 1, backgroundColor: '#ffffff', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#1E3A5F" />
       </View>
     );
-  }
-
-  if (!onboardingDone) {
-    return <OnboardingScreen onDone={() => setOnboardingDone(true)} />;
   }
 
   return (
