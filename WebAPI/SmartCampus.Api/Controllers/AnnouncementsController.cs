@@ -1,8 +1,12 @@
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using SmartCampus.Application.DTOs.Common;
-using SmartCampus.Application.Interfaces;
+using SmartCampus.Application.Features.Announcements.Commands.CreateAnnouncement;
+using SmartCampus.Application.Features.Announcements.Commands.DeleteAnnouncement;
+using SmartCampus.Application.Features.Announcements.Commands.UpdateAnnouncement;
+using SmartCampus.Application.Features.Announcements.Queries.GetAllAnnouncements;
+using SmartCampus.Application.Features.Announcements.Queries.GetAnnouncementById;
 using SmartCampus.Domain.Entities;
 
 namespace SmartCampus.Api.Controllers
@@ -12,30 +16,31 @@ namespace SmartCampus.Api.Controllers
     [Authorize]
     public class AnnouncementsController : ControllerBase
     {
-        private readonly IUnitOfWork _uow;
-        private readonly INotificationService _notificationService;
+        private readonly IMediator _mediator;
 
-        public AnnouncementsController(IUnitOfWork uow, INotificationService notificationService)
+        public AnnouncementsController(IMediator mediator)
         {
-            _uow = uow;
-            _notificationService = notificationService;
+            _mediator = mediator;
         }
 
         [HttpGet]
         [AllowAnonymous]
         public async Task<ActionResult<PagedResponse<Announcement>>> GetAnnouncements([FromQuery] PaginationQuery query)
         {
-            var totalCount = await _uow.Announcements.CountAsync();
-            var items = await _uow.Announcements.GetPagedAsync(query.Skip, query.PageSize, a => a.Tarih, descending: true);
+            var result = await _mediator.Send(new GetAllAnnouncementsQuery
+            {
+                Page = query.Page,
+                PageSize = query.PageSize
+            });
 
-            return Ok(PagedResponse<Announcement>.Create(items.ToList(), query.SafePage, query.PageSize, totalCount));
+            return Ok(result);
         }
 
         [HttpGet("{id}")]
         [AllowAnonymous]
         public async Task<ActionResult<Announcement>> GetAnnouncement(int id)
         {
-            var announcement = await _uow.Announcements.GetByIdAsync(id);
+            var announcement = await _mediator.Send(new GetAnnouncementByIdQuery(id));
 
             if (announcement == null)
             {
@@ -46,41 +51,22 @@ namespace SmartCampus.Api.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<Announcement>> PostAnnouncement(Announcement announcement)
+        public async Task<ActionResult<Announcement>> PostAnnouncement(CreateAnnouncementCommand command)
         {
-            announcement.Tarih = DateTime.UtcNow;
-            await _uow.Announcements.AddAsync(announcement);
-            await _uow.SaveChangesAsync();
-
-            await _notificationService.SendNotificationAsync(
-                "Yeni Duyuru: " + announcement.Baslik,
-                announcement.Icerik);
+            var announcement = await _mediator.Send(command);
 
             return CreatedAtAction(nameof(GetAnnouncement), new { id = announcement.ID }, announcement);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutAnnouncement(int id, Announcement announcement)
+        public async Task<IActionResult> PutAnnouncement(int id, UpdateAnnouncementCommand command)
         {
-            if (id != announcement.ID)
-            {
-                return BadRequest();
-            }
+            command.Id = id;
+            var updated = await _mediator.Send(command);
 
-            _uow.Announcements.Update(announcement);
-
-            try
+            if (updated == null)
             {
-                await _uow.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!await AnnouncementExists(id))
-                {
-                    return NotFound();
-                }
-
-                throw;
+                return NotFound();
             }
 
             return NoContent();
@@ -89,19 +75,14 @@ namespace SmartCampus.Api.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAnnouncement(int id)
         {
-            var announcement = await _uow.Announcements.GetByIdAsync(id);
-            if (announcement == null)
+            var deleted = await _mediator.Send(new DeleteAnnouncementCommand(id));
+
+            if (!deleted)
             {
                 return NotFound();
             }
 
-            _uow.Announcements.Remove(announcement);
-            await _uow.SaveChangesAsync();
-
             return NoContent();
         }
-
-        private Task<bool> AnnouncementExists(int id)
-            => _uow.Announcements.AnyAsync(e => e.ID == id);
     }
 }

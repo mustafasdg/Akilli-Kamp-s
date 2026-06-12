@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using SmartCampus.Application;
 using SmartCampus.Application.Common;
 using SmartCampus.Domain.Entities;
 using SmartCampus.Infrastructure;
@@ -25,6 +26,9 @@ builder.Services
     .AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
     .SetApplicationName("SmartCampus.Api");
+
+// Application katmani: MediatR / CQRS handler'lari
+builder.Services.AddApplicationServices();
 
 // Infrastructure katmani: SQL Server DbContext, repository'ler ve servisler
 builder.Services.AddInfrastructure(builder.Configuration);
