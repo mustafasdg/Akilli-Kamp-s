@@ -8,6 +8,8 @@ import RegisterScreen from '../screens/RegisterScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import AnnouncementDetailScreen from '../screens/AnnouncementDetailScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import NewsScreen from '../screens/NewsScreen';
+import EventsScreen from '../screens/EventsScreen';
 import AppTabs from './AppTabs';
 import { Announcement } from '../types/models';
 
@@ -21,6 +23,8 @@ export type AppRootParamList = {
   MainTabs: undefined;
   EditProfile: undefined;
   AnnouncementDetail: { item: Announcement };
+  News: undefined;
+  Events: undefined;
 };
 
 type RootStackParamList = {
@@ -42,12 +46,38 @@ function AuthNavigator() {
   );
 }
 
+const HEADER_THEME = {
+  headerStyle: { backgroundColor: '#1E3A5F' },
+  headerTintColor: '#FFFFFF',
+  headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 },
+  headerBackTitle: '',
+  animation: 'slide_from_right' as const,
+};
+
 function AppNavigator() {
   return (
     <AppRootStack.Navigator screenOptions={{ headerShown: false }}>
       <AppRootStack.Screen name="MainTabs" component={AppTabs} />
-      <AppRootStack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right' }} />
-      <AppRootStack.Screen name="AnnouncementDetail" component={AnnouncementDetailScreen} options={{ animation: 'slide_from_right' }} />
+      <AppRootStack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <AppRootStack.Screen
+        name="AnnouncementDetail"
+        component={AnnouncementDetailScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <AppRootStack.Screen
+        name="News"
+        component={NewsScreen}
+        options={{ ...HEADER_THEME, headerShown: true, headerTitle: 'Kampüs Haberleri' }}
+      />
+      <AppRootStack.Screen
+        name="Events"
+        component={EventsScreen}
+        options={{ ...HEADER_THEME, headerShown: true, headerTitle: 'Etkinlikler' }}
+      />
     </AppRootStack.Navigator>
   );
 }

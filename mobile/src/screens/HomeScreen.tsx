@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, ActivityIndicator, RefreshControl,
@@ -12,7 +12,9 @@ import { CompositeNavigationProp } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useHomeData } from '../hooks/useHomeData';
 import { useWeather, getWeatherDescription } from '../hooks/useWeather';
-import { Announcement, Menu } from '../types/models';
+import { useNews } from '../hooks/useNews';
+import { useEvents } from '../hooks/useEvents';
+import { Announcement, News, Event } from '../types/models';
 import { useColors } from '../context/ThemeContext';
 import colors from '../theme/colors';
 import { AppTabParamList } from '../navigation/AppTabs';
@@ -33,6 +35,13 @@ export default function HomeScreen() {
   useNotifications();
   const { announcements, todayMenu, locations, isLoading, error, refresh } = useHomeData();
   const { weather } = useWeather(37.7648, 30.5566);
+  const { items: newsItems, isLoading: newsLoading } = useNews();
+  const { items: eventItems, isLoading: eventsLoading } = useEvents();
+
+  const upcomingEvents = useMemo(
+    () => eventItems.filter(e => new Date(e.tarih) >= new Date()).slice(0, 3),
+    [eventItems],
+  );
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Günaydın' : hour < 18 ? 'İyi günler' : 'İyi akşamlar';
@@ -53,23 +62,15 @@ export default function HomeScreen() {
           <RefreshControl refreshing={isLoading} onRefresh={refresh} tintColor={colors.primary} />
         }
       >
-        {/* ── 1. Header (standart app düzeni) ─────────────────── */}
+        {/* ── 1. Header ────────────────────────────────────────── */}
         <View style={styles.header}>
-          {/* Sol: Avatar → Profil */}
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Profile')}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
             <UserAvatar name={user?.name ?? '?'} size={46} />
           </TouchableOpacity>
-
-          {/* Orta: Selamlama + İsim */}
           <View style={styles.headerCenter}>
             <Text style={styles.greeting} numberOfLines={1}>{greeting} 👋</Text>
             <Text style={styles.userName} numberOfLines={1}>{formatName(user?.name ?? '')}</Text>
           </View>
-
-          {/* Sağ: Bildirim */}
           <TouchableOpacity
             style={styles.bellBtn}
             onPress={() => navigation.navigate('Announcements')}
@@ -79,7 +80,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── 2. Hava Durumu Şeridi ──────────────────────────── */}
+        {/* ── 2. Hava Durumu Şeridi ─────────────────────────────*/}
         <View style={styles.weatherStrip}>
           <Text style={styles.weatherEmoji}>{weatherEmoji}</Text>
           <View style={styles.weatherInfo}>
@@ -100,7 +101,6 @@ export default function HomeScreen() {
 
         {/* ── 3. Harita + Menü Kartları (yan yana) ─────────────*/}
         <View style={styles.cardRow}>
-          {/* Harita */}
           <TouchableOpacity
             style={[styles.squareCard, styles.mapCard]}
             onPress={() => navigation.navigate('Map')}
@@ -114,7 +114,6 @@ export default function HomeScreen() {
             <Ionicons name="chevron-forward" size={14} color={colors.primary} style={styles.squareArrow} />
           </TouchableOpacity>
 
-          {/* Menü */}
           <TouchableOpacity
             style={[styles.squareCard, styles.menuCard]}
             onPress={() => navigation.navigate('Menu')}
@@ -124,9 +123,7 @@ export default function HomeScreen() {
             <Text style={styles.squareTitle}>Bugünün{'\n'}Menüsü</Text>
             {todayMenu ? (
               <View style={styles.menuSnippet}>
-                <Text style={styles.menuSnippetText} numberOfLines={1}>
-                  {todayMenu.yemek_1}
-                </Text>
+                <Text style={styles.menuSnippetText} numberOfLines={1}>{todayMenu.yemek1}</Text>
                 <Text style={styles.menuKcal}>🔥 {todayMenu.kalori} kcal</Text>
               </View>
             ) : (
@@ -138,7 +135,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── 4. Duyurular ───────────────────────────────────── */}
+        {/* ── 4. Duyurular ─────────────────────────────────────*/}
         {error ? (
           <View style={styles.errorBanner}>
             <Ionicons name="wifi-outline" size={16} color={colors.error} />
@@ -164,6 +161,69 @@ export default function HomeScreen() {
               activeOpacity={0.85}
             >
               <AnnouncementCard item={a} colors={colors} />
+            </TouchableOpacity>
+          ))
+        )}
+
+        {/* ── 5. Kampüs Haberleri ──────────────────────────────*/}
+        <SectionHeader
+          title="Kampüs Haberleri"
+          icon="newspaper-outline"
+          onSeeAll={() => navigation.navigate('News')}
+        />
+
+        {newsLoading && !newsItems.length ? (
+          <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
+        ) : newsItems.length === 0 ? (
+          <EmptyCard text="Henüz haber yok." />
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hScroll}
+          >
+            {newsItems.slice(0, 5).map(n => (
+              <TouchableOpacity
+                key={n.id}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('News')}
+              >
+                <NewsPreviewCard item={n} />
+              </TouchableOpacity>
+            ))}
+            {/* Son kart: Tümünü Gör */}
+            <TouchableOpacity
+              style={styles.seeAllCard}
+              onPress={() => navigation.navigate('News')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.seeAllCardIcon}>
+                <Ionicons name="arrow-forward" size={22} color="#fff" />
+              </View>
+              <Text style={styles.seeAllCardText}>Tümünü{'\n'}Gör</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
+
+        {/* ── 6. Yaklaşan Etkinlikler ──────────────────────────*/}
+        <SectionHeader
+          title="Yaklaşan Etkinlikler"
+          icon="calendar-outline"
+          onSeeAll={() => navigation.navigate('Events')}
+        />
+
+        {eventsLoading && !eventItems.length ? (
+          <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
+        ) : upcomingEvents.length === 0 ? (
+          <EmptyCard text="Yaklaşan etkinlik bulunmuyor." />
+        ) : (
+          upcomingEvents.map(e => (
+            <TouchableOpacity
+              key={e.id}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('Events')}
+            >
+              <EventPreviewCard item={e} />
             </TouchableOpacity>
           ))
         )}
@@ -214,6 +274,84 @@ function AnnouncementCard({ item, colors }: { item: Announcement; colors: any })
   );
 }
 
+function NewsPreviewCard({ item }: { item: News }) {
+  const badge = getBadgeStyle(item.kategori, colors);
+  const dateStr = new Date(item.tarih).toLocaleDateString('tr-TR', {
+    day: 'numeric', month: 'short',
+  });
+  const isRecent = (Date.now() - new Date(item.tarih).getTime()) < 7 * 24 * 60 * 60 * 1000;
+
+  return (
+    <View style={styles.newsCard}>
+      {/* Lacivert aksanlı üst şerit */}
+      <View style={styles.newsCardBar} />
+      <View style={styles.newsCardBody}>
+        <View style={styles.newsCardTop}>
+          <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+            <Text style={[styles.badgeText, { color: badge.text }]}>{item.kategori}</Text>
+          </View>
+          {isRecent && (
+            <View style={styles.newPill}>
+              <Text style={styles.newPillText}>Yeni</Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.newsCardTitle} numberOfLines={3}>{item.baslik}</Text>
+        <View style={styles.newsCardFooter}>
+          <Ionicons name="time-outline" size={11} color={colors.textMuted} />
+          <Text style={styles.newsCardDate}>{dateStr}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function EventPreviewCard({ item }: { item: Event }) {
+  const date = new Date(item.tarih);
+  const isToday = date.toDateString() === new Date().toDateString();
+  const dayStr   = date.toLocaleDateString('tr-TR', { day: 'numeric' });
+  const monthStr = date.toLocaleDateString('tr-TR', { month: 'short' });
+  const timeStr  = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  const badge    = getBadgeStyle(item.kategori, colors);
+
+  return (
+    <View style={[styles.eventCard, isToday && styles.eventCardToday]}>
+      {/* Sol — mini takvim */}
+      <View style={[styles.eventDatePill, isToday && styles.eventDatePillToday]}>
+        <Text style={[styles.eventDay, isToday && styles.eventDayToday]}>{dayStr}</Text>
+        <Text style={[styles.eventMonth, isToday && styles.eventMonthToday]}>{monthStr}</Text>
+      </View>
+
+      {/* Sağ — içerik */}
+      <View style={styles.eventContent}>
+        <View style={styles.eventTop}>
+          <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+            <Text style={[styles.badgeText, { color: badge.text }]}>{item.kategori}</Text>
+          </View>
+          {isToday && (
+            <View style={styles.todayPill}>
+              <Text style={styles.todayPillText}>Bugün</Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.eventTitle} numberOfLines={2}>{item.baslik}</Text>
+        <View style={styles.eventMeta}>
+          <Ionicons name="time-outline" size={12} color={colors.textMuted} />
+          <Text style={styles.eventMetaText}>{timeStr}</Text>
+          {item.locationId != null && (
+            <>
+              <Ionicons name="location-outline" size={12} color={colors.textMuted} />
+              <Text style={styles.eventMetaText}>Konum eklendi</Text>
+            </>
+          )}
+        </View>
+      </View>
+
+      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+    </View>
+  );
+}
+
 function EmptyCard({ text }: { text: string }) {
   return (
     <View style={[styles.annCard, { alignItems: 'center', paddingVertical: 24 }]}>
@@ -236,10 +374,10 @@ function getBadgeStyle(kategori: string, c: any) {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F5F9' },
-  container: { paddingBottom: 32, gap: 12 },
+  safe: { flex: 1 },
+  container: { paddingBottom: 40, gap: 12 },
 
-  // 1. Header (standart app düzeni)
+  // ── 1. Header
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 20, paddingTop: 12, paddingBottom: 14,
@@ -255,7 +393,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
   },
 
-  // 2. Hava durumu şeridi (açık mavi)
+  // ── 2. Hava durumu
   weatherStrip: {
     marginHorizontal: 20,
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -273,7 +411,7 @@ const styles = StyleSheet.create({
   weatherWind: { fontSize: 13, color: '#3A5A7A' },
   weatherCity: { fontSize: 13, color: '#5A7A98', flex: 1, textAlign: 'right' },
 
-  // 3. Yan yana kartlar
+  // ── 3. Yan yana kartlar
   cardRow: { flexDirection: 'row', gap: 12, marginHorizontal: 20 },
   squareCard: {
     flex: 1, borderRadius: 16, padding: 16, minHeight: 150,
@@ -284,7 +422,6 @@ const styles = StyleSheet.create({
   },
   mapCard:  { backgroundColor: colors.surface },
   menuCard: { backgroundColor: colors.surface },
-
   squareEmoji: { fontSize: 28 },
   squareTitle: { fontSize: 14, fontWeight: '700', color: colors.text, lineHeight: 20 },
   squareBadge: {
@@ -293,12 +430,11 @@ const styles = StyleSheet.create({
   },
   squareBadgeText: { fontSize: 11, fontWeight: '600', color: colors.primary },
   squareArrow: { position: 'absolute', top: 12, right: 12 },
-
   menuSnippet: { gap: 3 },
   menuSnippetText: { fontSize: 12, color: colors.textSecondary },
   menuKcal: { fontSize: 12, fontWeight: '600', color: colors.warning },
 
-  // 4. Duyurular
+  // ── 4. Duyurular
   errorBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: colors.errorLight, borderRadius: 10,
@@ -327,4 +463,77 @@ const styles = StyleSheet.create({
   annDate: { fontSize: 11, color: colors.textMuted },
   annTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
   annBody: { fontSize: 13, color: colors.textSecondary, lineHeight: 19 },
+
+  // ── 5. Haber önizleme kartları (yatay scroll)
+  hScroll: {
+    paddingHorizontal: 20, gap: 10, paddingBottom: 4,
+  },
+  newsCard: {
+    width: 170, backgroundColor: colors.surface, borderRadius: 14,
+    borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+    shadowColor: '#1E3A5F', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08, shadowRadius: 6, elevation: 3,
+  },
+  newsCardBar: { height: 4, backgroundColor: colors.primary },
+  newsCardBody: { padding: 12, gap: 8 },
+  newsCardTop: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  newPill: {
+    backgroundColor: colors.primary, borderRadius: 4,
+    paddingHorizontal: 5, paddingVertical: 2,
+  },
+  newPillText: { fontSize: 9, fontWeight: '700', color: '#fff' },
+  newsCardTitle: { fontSize: 13, fontWeight: '700', color: colors.text, lineHeight: 18 },
+  newsCardFooter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  newsCardDate: { fontSize: 11, color: colors.textMuted },
+
+  seeAllCard: {
+    width: 90, backgroundColor: colors.primary, borderRadius: 14,
+    justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: 20,
+    shadowColor: '#1E3A5F', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25, shadowRadius: 6, elevation: 4,
+  },
+  seeAllCardIcon: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  seeAllCardText: {
+    fontSize: 12, fontWeight: '700', color: '#fff', textAlign: 'center', lineHeight: 17,
+  },
+
+  // ── 6. Etkinlik önizleme kartları (dikey)
+  eventCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: colors.surface, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: colors.border,
+    marginHorizontal: 20,
+    shadowColor: '#1E3A5F', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07, shadowRadius: 5, elevation: 2,
+  },
+  eventCardToday: {
+    borderColor: colors.primary, borderWidth: 1.5,
+    backgroundColor: colors.primaryLight + '30',
+  },
+
+  eventDatePill: {
+    width: 50, borderRadius: 10, paddingVertical: 8,
+    backgroundColor: colors.border,
+    alignItems: 'center', justifyContent: 'center', gap: 2,
+  },
+  eventDatePillToday: { backgroundColor: colors.primary },
+  eventDay: { fontSize: 22, fontWeight: '800', color: colors.textSecondary, lineHeight: 26 },
+  eventDayToday: { color: '#fff' },
+  eventMonth: { fontSize: 11, fontWeight: '600', color: colors.textMuted },
+  eventMonthToday: { color: 'rgba(255,255,255,0.85)' },
+
+  eventContent: { flex: 1, gap: 5 },
+  eventTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  todayPill: {
+    backgroundColor: colors.primary, borderRadius: 4,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  todayPillText: { fontSize: 10, fontWeight: '700', color: '#fff' },
+  eventTitle: { fontSize: 14, fontWeight: '700', color: colors.text, lineHeight: 19 },
+  eventMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  eventMetaText: { fontSize: 11, color: colors.textMuted },
 });

@@ -36,21 +36,40 @@ export interface Announcement {
   kategori: string;
 }
 
+// GET /api/news
+export interface News {
+  id: number;
+  baslik: string;
+  icerik: string;
+  tarih: string;
+  kategori: string;
+}
+
+// GET /api/events
+export interface Event {
+  id: number;
+  baslik: string;
+  icerik: string;
+  tarih: string;
+  kategori: string;
+  locationId?: number;
+}
+
 // GET /api/menus
 export interface Menu {
   id: number;
   tarih: string;
-  yemek_1: string;
-  yemek_2: string;
-  yemek_3: string;
-  yemek_4: string;
+  yemek1: string;
+  yemek2: string;
+  yemek3: string;
+  yemek4: string;
   kalori: number;
 }
 
 // GET /api/locations
 export interface Location {
   id: number;
-  bina_Adi: string;
+  binaAdi: string;
   enlem: number;
   boylam: number;
   aciklama: string;

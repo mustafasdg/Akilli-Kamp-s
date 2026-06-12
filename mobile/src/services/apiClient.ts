@@ -1,9 +1,17 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_BASE_URL, TOKEN_KEY } from '../utils/constants';
+import { Platform } from 'react-native';
+import { TOKEN_KEY } from '../utils/constants';
+
+// Android emülatörü host makinesiyle 10.0.2.2 üzerinden konuşur;
+// iOS simülatörü ve web doğrudan localhost'u kullanır.
+const BASE_URL = Platform.select({
+  android: 'http://10.0.2.2:5206/api',
+  default: 'http://localhost:5206/api',
+});
 
 const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: BASE_URL,
   timeout: 10_000,
   headers: { 'Content-Type': 'application/json' },
 });

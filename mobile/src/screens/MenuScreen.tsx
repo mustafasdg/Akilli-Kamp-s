@@ -24,7 +24,7 @@ export default function MenuScreen() {
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter(m =>
-        [m.yemek_1, m.yemek_2, m.yemek_3, m.yemek_4].some(y => y?.toLowerCase().includes(q))
+        [m.yemek1, m.yemek2, m.yemek3, m.yemek4].some(y => y?.toLowerCase().includes(q))
       );
     }
     return list;
@@ -131,7 +131,7 @@ function Header({ query, onQuery, showFav, onToggleFav, c, s }: any) {
 }
 
 function MenuCard({ item, isFav, onToggleFav, c, s }: { item: Menu; isFav: boolean; onToggleFav: () => void; c: any; s: any }) {
-  const foods = [item.yemek_1, item.yemek_2, item.yemek_3, item.yemek_4].filter(Boolean);
+  const foods = [item.yemek1, item.yemek2, item.yemek3, item.yemek4].filter(Boolean);
   const date = new Date(item.tarih);
   const isActuallyToday = date.toDateString() === new Date().toDateString();
   const dateStr = date.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
