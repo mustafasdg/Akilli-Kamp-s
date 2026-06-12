@@ -59,17 +59,17 @@ export interface Event {
 export interface Menu {
   id: number;
   tarih: string;
-  yemek1: string;
-  yemek2: string;
-  yemek3: string;
-  yemek4: string;
+  yemek_1: string;
+  yemek_2: string;
+  yemek_3: string;
+  yemek_4: string;
   kalori: number;
 }
 
 // GET /api/locations
 export interface Location {
   id: number;
-  binaAdi: string;
+  bina_Adi: string;
   enlem: number;
   boylam: number;
   aciklama: string;
@@ -84,4 +84,73 @@ export interface PagedResult<T> {
   totalCount: number;
   totalPages: number;
   hasNextPage: boolean;
+}
+
+// ─── Messaging ────────────────────────────────────────────────────────────────
+
+// GET /api/messages/conversation/{otherUserId}
+export interface Message {
+  id: number;
+  senderId: number;
+  receiverId: number;
+  content: string;
+  timestamp: string;   // ISO 8601
+  isRead: boolean;
+}
+
+// ─── Academic Staff ───────────────────────────────────────────────────────────
+
+// GET /api/users?role=teacher
+export interface Teacher {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  /** Backend'e eklenirse dolar, yoksa email domain'den türetilir */
+  department?: string;
+  bio?: string;
+  officeLocation?: string;
+  researchAreas?: string;
+  /** useTeachers hook'u tarafından istemci tarafında hesaplanır */
+  isAvailableToday?: boolean;
+}
+
+// GET /api/schedules/{teacherId}
+export interface TeacherSchedule {
+  id: number;
+  teacherId: number;
+  /** 0 = Pazar … 6 = Cumartesi (DayOfWeek enum) */
+  dayOfWeek: number;
+  startTime: string;   // "HH:mm:ss"
+  endTime: string;
+  isAvailable: boolean;
+}
+
+// ─── Appointments ─────────────────────────────────────────────────────────────
+
+export enum AppointmentStatus {
+  Pending  = 0,
+  Approved = 1,
+  Rejected = 2,
+}
+
+// GET /api/appointments/mine
+export interface Appointment {
+  id: number;
+  studentId: number;
+  studentName: string;
+  teacherId: number;
+  teacherName: string;
+  scheduleId?: number;
+  appointmentDate: string;   // ISO 8601
+  status: AppointmentStatus;
+  description: string;
+  createdAt: string;
+}
+
+export interface CreateAppointmentRequest {
+  teacherId: number;
+  scheduleId?: number;
+  appointmentDate: string;   // ISO 8601
+  description: string;
 }

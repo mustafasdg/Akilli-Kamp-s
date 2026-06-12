@@ -31,6 +31,8 @@ export default function ProfileScreen() {
     );
   };
 
+  const roleInfo = getRoleInfo(user?.role ?? '');
+
   const joinDate = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString('tr-TR', {
         day: 'numeric', month: 'long', year: 'numeric',
@@ -44,7 +46,7 @@ export default function ProfileScreen() {
         {/* ── Hero alanı ─────────────────────────────────────── */}
         <View style={styles.hero}>
           <View style={styles.avatarWrapper}>
-            <UserAvatar name={user?.name ?? '?'} size={84} />
+            <UserAvatar name={user?.name ?? '?'} size={84} backgroundColor={colors.primary} />
             <TouchableOpacity
               style={styles.editBadge}
               onPress={() => navigation.navigate('EditProfile')}
@@ -58,9 +60,9 @@ export default function ProfileScreen() {
             <Ionicons name="mail-outline" size={14} color={colors.textMuted} />
             <Text style={styles.email}>{user?.email}</Text>
           </View>
-          <View style={styles.memberBadge}>
-            <Ionicons name="school-outline" size={13} color={colors.primary} />
-            <Text style={styles.memberText}>Akıllı Kampüs Üyesi</Text>
+          <View style={[styles.roleBadge, { backgroundColor: roleInfo.bg }]}>
+            <Ionicons name={roleInfo.icon} size={13} color={roleInfo.color} />
+            <Text style={[styles.roleText, { color: roleInfo.color }]}>{roleInfo.label}</Text>
           </View>
         </View>
 
@@ -83,6 +85,12 @@ export default function ProfileScreen() {
             icon="at-outline"
             label="E-posta"
             value={user?.email ?? '—'}
+          />
+          <Divider />
+          <InfoRow
+            icon="ribbon-outline"
+            label="Rol"
+            value={roleInfo.label}
           />
           <Divider />
           <ActionRow
@@ -127,6 +135,24 @@ export default function ProfileScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+// ─── Rol yardımcısı ──────────────────────────────────────────────────────────
+
+type RoleInfo = {
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  color: string;
+  bg: string;
+};
+
+function getRoleInfo(role: string): RoleInfo {
+  const r = role.toLowerCase();
+  if (r.includes('admin') || r.includes('yönetici'))
+    return { label: 'Yönetici', icon: 'shield-checkmark-outline', color: '#7C3AED', bg: '#EDE9FE' };
+  if (r.includes('academic') || r.includes('akademi') || r.includes('teacher') || r.includes('öğretim'))
+    return { label: 'Akademisyen', icon: 'library-outline', color: '#065F46', bg: '#D1FAE5' };
+  return { label: 'Öğrenci', icon: 'school-outline', color: '#1E3A5F', bg: '#D6E4F0' };
 }
 
 // ─── Alt bileşenler ───────────────────────────────────────────────────────────
@@ -206,12 +232,11 @@ const makeStyles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   name: { fontSize: 22, fontWeight: '700', color: c.text },
   emailRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   email: { fontSize: 14, color: c.textSecondary },
-  memberBadge: {
+  roleBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: c.primaryLight,
     borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, marginTop: 4,
   },
-  memberText: { fontSize: 12, fontWeight: '600', color: c.primary },
+  roleText: { fontSize: 12, fontWeight: '700' },
 
   sectionLabel: {
     fontSize: 12, fontWeight: '700', color: c.textMuted,

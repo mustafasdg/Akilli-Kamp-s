@@ -98,7 +98,7 @@ export default function MapScreen() {
           >
             <Callout tooltip={false}>
               <View style={styles.callout}>
-                <Text style={styles.calloutTitle}>{loc.binaAdi}</Text>
+                <Text style={styles.calloutTitle}>{loc.bina_Adi}</Text>
                 {loc.aciklama ? (
                   <Text style={styles.calloutDesc}>{loc.aciklama}</Text>
                 ) : null}
@@ -134,7 +134,7 @@ export default function MapScreen() {
                   style={[styles.chipText, selectedId === loc.id && styles.chipTextActive]}
                   numberOfLines={1}
                 >
-                  {loc.binaAdi}
+                  {loc.bina_Adi}
                 </Text>
               </TouchableOpacity>
             ))}

@@ -11,6 +11,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CompositeNavigationProp } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useHomeData } from '../hooks/useHomeData';
+import { useMenus } from '../hooks/useMenus';
 import { useWeather, getWeatherDescription } from '../hooks/useWeather';
 import { useNews } from '../hooks/useNews';
 import { useEvents } from '../hooks/useEvents';
@@ -33,7 +34,16 @@ export default function HomeScreen() {
   const colors = useColors();
   const navigation = useNavigation<NavProp>();
   useNotifications();
-  const { announcements, todayMenu, locations, isLoading, error, refresh } = useHomeData();
+  const { announcements, locations, isLoading, error, refresh } = useHomeData();
+  const { items: menuItems, loading: menuLoading, refresh: refreshMenus } = useMenus();
+  const todayMenu = useMemo(() => {
+    const today = new Date().toDateString();
+    return (
+      menuItems.find(m => new Date(m.tarih).toDateString() === today) ??
+      menuItems[menuItems.length - 1] ??
+      null
+    );
+  }, [menuItems]);
   const { weather } = useWeather(37.7648, 30.5566);
   const { items: newsItems, isLoading: newsLoading } = useNews();
   const { items: eventItems, isLoading: eventsLoading } = useEvents();
@@ -59,7 +69,11 @@ export default function HomeScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refresh} tintColor={colors.primary} />
+          <RefreshControl
+            refreshing={isLoading || menuLoading}
+            onRefresh={() => { refresh(); refreshMenus(); }}
+            tintColor={colors.primary}
+          />
         }
       >
         {/* ── 1. Header ────────────────────────────────────────── */}
@@ -123,7 +137,7 @@ export default function HomeScreen() {
             <Text style={styles.squareTitle}>Bugünün{'\n'}Menüsü</Text>
             {todayMenu ? (
               <View style={styles.menuSnippet}>
-                <Text style={styles.menuSnippetText} numberOfLines={1}>{todayMenu.yemek1}</Text>
+                <Text style={styles.menuSnippetText} numberOfLines={1}>{todayMenu.yemek_1}</Text>
                 <Text style={styles.menuKcal}>🔥 {todayMenu.kalori} kcal</Text>
               </View>
             ) : (

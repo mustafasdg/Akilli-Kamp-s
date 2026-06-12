@@ -42,6 +42,11 @@ namespace SmartCampus.Infrastructure.Repositories
         public Task<bool> AnyAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
             => _dbSet.AnyAsync(predicate, cancellationToken);
 
+        public async Task<IReadOnlyList<T>> ListAsync(
+            Expression<Func<T, bool>> predicate,
+            CancellationToken cancellationToken = default)
+            => await _dbSet.Where(predicate).ToListAsync(cancellationToken);
+
         public async Task AddAsync(T entity, CancellationToken cancellationToken = default)
             => await _dbSet.AddAsync(entity, cancellationToken);
 

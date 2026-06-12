@@ -20,8 +20,17 @@ namespace SmartCampus.Domain.Entities
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        /// <summary>"user" veya "admin"</summary>
+        /// <summary>"user", "admin" veya "teacher"</summary>
         [MaxLength(20)]
         public string Role { get; set; } = "user";
+
+        [MaxLength(1000)]
+        public string? Bio { get; set; }
+
+        [MaxLength(200)]
+        public string? OfficeLocation { get; set; }
+
+        [MaxLength(500)]
+        public string? ResearchAreas { get; set; }
     }
 }

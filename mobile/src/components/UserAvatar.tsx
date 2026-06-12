@@ -4,12 +4,13 @@ import { getInitials, stringToColor } from '../utils/avatarUtils';
 
 interface Props {
   name: string;
-  size?: number;       // daire çapı (varsayılan: 44)
-  fontSize?: number;   // harf boyutu (varsayılan: otomatik)
+  size?: number;
+  fontSize?: number;
+  backgroundColor?: string;
 }
 
-export default function UserAvatar({ name, size = 44, fontSize }: Props) {
-  const bg = stringToColor(name);
+export default function UserAvatar({ name, size = 44, fontSize, backgroundColor }: Props) {
+  const bg = backgroundColor ?? stringToColor(name);
   const fs = fontSize ?? Math.round(size * 0.36);
   const radius = size / 2;
 

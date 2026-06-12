@@ -16,6 +16,9 @@ namespace SmartCampus.Infrastructure.Context
         public DbSet<User> Users { get; set; }
         public DbSet<News> News { get; set; }
         public DbSet<Event> Events { get; set; }
+        public DbSet<Appointment> Appointments { get; set; }
+        public DbSet<TeacherSchedule> TeacherSchedules { get; set; }
+        public DbSet<Message> Messages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -63,6 +66,81 @@ namespace SmartCampus.Infrastructure.Context
                 .WithMany()
                 .HasForeignKey(n => n.AppUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // ---- Appointment iliskileri ----
+
+            // Appointment -> Student (User)
+            modelBuilder.Entity<Appointment>()
+                .HasOne(a => a.Student)
+                .WithMany()
+                .HasForeignKey(a => a.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Appointment -> Teacher (User)
+            // SQL Server'da ayni tabloya iki FK oldugunda Restrict zorunlu
+            modelBuilder.Entity<Appointment>()
+                .HasOne(a => a.Teacher)
+                .WithMany()
+                .HasForeignKey(a => a.TeacherId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // AppointmentStatus enum -> int olarak sakla
+            modelBuilder.Entity<Appointment>()
+                .Property(a => a.Status)
+                .HasConversion<int>();
+
+            // ---- TeacherSchedule iliskileri ----
+
+            // TeacherSchedule -> Teacher (User)
+            modelBuilder.Entity<TeacherSchedule>()
+                .HasOne(s => s.Teacher)
+                .WithMany()
+                .HasForeignKey(s => s.TeacherId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // DayOfWeek enum -> int olarak sakla
+            modelBuilder.Entity<TeacherSchedule>()
+                .Property(s => s.DayOfWeek)
+                .HasConversion<int>();
+
+            // Ayni ogretmen, ayni gun, ayni saat blogu tekrarlanamasin
+            modelBuilder.Entity<TeacherSchedule>()
+                .HasIndex(s => new { s.TeacherId, s.DayOfWeek, s.StartTime })
+                .IsUnique();
+
+            // ---- Message iliskileri ----
+
+            // Message -> Sender (User)
+            modelBuilder.Entity<Message>()
+                .HasOne(m => m.Sender)
+                .WithMany()
+                .HasForeignKey(m => m.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Message -> Receiver (User)
+            modelBuilder.Entity<Message>()
+                .HasOne(m => m.Receiver)
+                .WithMany()
+                .HasForeignKey(m => m.ReceiverId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Konusma sorgularini hizlandiran composite index
+            modelBuilder.Entity<Message>()
+                .HasIndex(m => new { m.SenderId, m.ReceiverId, m.Timestamp });
+
+            // ---- Appointment -> TeacherSchedule (opsiyonel baglanti) ----
+            modelBuilder.Entity<Appointment>()
+                .HasOne(a => a.Schedule)
+                .WithMany()
+                .HasForeignKey(a => a.ScheduleId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // ---- Appointment -> Message (opsiyonel baglanti) ----
+            modelBuilder.Entity<Appointment>()
+                .HasOne(a => a.Message)
+                .WithMany()
+                .HasForeignKey(a => a.MessageId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

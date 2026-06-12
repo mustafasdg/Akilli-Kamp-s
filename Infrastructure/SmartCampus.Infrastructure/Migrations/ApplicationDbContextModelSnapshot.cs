@@ -60,6 +60,52 @@ namespace SmartCampus.Infrastructure.Migrations
                     b.ToTable("Announcements");
                 });
 
+            modelBuilder.Entity("SmartCampus.Domain.Entities.Appointment", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<DateTime>("AppointmentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("MessageId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeacherId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("MessageId");
+
+                    b.HasIndex("ScheduleId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("TeacherId");
+
+                    b.ToTable("Appointments");
+                });
+
             modelBuilder.Entity("SmartCampus.Domain.Entities.Event", b =>
                 {
                     b.Property<int>("ID")
@@ -160,6 +206,39 @@ namespace SmartCampus.Infrastructure.Migrations
                     b.ToTable("Menus");
                 });
 
+            modelBuilder.Entity("SmartCampus.Domain.Entities.Message", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ReceiverId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SenderId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("ReceiverId");
+
+                    b.HasIndex("SenderId", "ReceiverId", "Timestamp");
+
+                    b.ToTable("Messages");
+                });
+
             modelBuilder.Entity("SmartCampus.Domain.Entities.News", b =>
                 {
                     b.Property<int>("ID")
@@ -193,6 +272,37 @@ namespace SmartCampus.Infrastructure.Migrations
                     b.ToTable("News");
                 });
 
+            modelBuilder.Entity("SmartCampus.Domain.Entities.TeacherSchedule", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("int");
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("IsAvailable")
+                        .HasColumnType("bit");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time");
+
+                    b.Property<int>("TeacherId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("TeacherId", "DayOfWeek", "StartTime")
+                        .IsUnique();
+
+                    b.ToTable("TeacherSchedules");
+                });
+
             modelBuilder.Entity("SmartCampus.Domain.Entities.User", b =>
                 {
                     b.Property<int>("ID")
@@ -200,6 +310,10 @@ namespace SmartCampus.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<string>("Bio")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -214,9 +328,17 @@ namespace SmartCampus.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("OfficeLocation")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ResearchAreas")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -248,6 +370,39 @@ namespace SmartCampus.Infrastructure.Migrations
                     b.Navigation("Location");
                 });
 
+            modelBuilder.Entity("SmartCampus.Domain.Entities.Appointment", b =>
+                {
+                    b.HasOne("SmartCampus.Domain.Entities.Message", "Message")
+                        .WithMany()
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("SmartCampus.Domain.Entities.TeacherSchedule", "Schedule")
+                        .WithMany()
+                        .HasForeignKey("ScheduleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("SmartCampus.Domain.Entities.User", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SmartCampus.Domain.Entities.User", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Message");
+
+                    b.Navigation("Schedule");
+
+                    b.Navigation("Student");
+
+                    b.Navigation("Teacher");
+                });
+
             modelBuilder.Entity("SmartCampus.Domain.Entities.Event", b =>
                 {
                     b.HasOne("SmartCampus.Domain.Entities.User", "AppUser")
@@ -265,6 +420,25 @@ namespace SmartCampus.Infrastructure.Migrations
                     b.Navigation("Location");
                 });
 
+            modelBuilder.Entity("SmartCampus.Domain.Entities.Message", b =>
+                {
+                    b.HasOne("SmartCampus.Domain.Entities.User", "Receiver")
+                        .WithMany()
+                        .HasForeignKey("ReceiverId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SmartCampus.Domain.Entities.User", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Receiver");
+
+                    b.Navigation("Sender");
+                });
+
             modelBuilder.Entity("SmartCampus.Domain.Entities.News", b =>
                 {
                     b.HasOne("SmartCampus.Domain.Entities.User", "AppUser")
@@ -273,6 +447,17 @@ namespace SmartCampus.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("AppUser");
+                });
+
+            modelBuilder.Entity("SmartCampus.Domain.Entities.TeacherSchedule", b =>
+                {
+                    b.HasOne("SmartCampus.Domain.Entities.User", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Teacher");
                 });
 #pragma warning restore 612, 618
         }

@@ -11,7 +11,10 @@ import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import NewsScreen from '../screens/NewsScreen';
 import EventsScreen from '../screens/EventsScreen';
 import AppTabs from './AppTabs';
-import { Announcement } from '../types/models';
+import ChatScreen from '../screens/ChatScreen';
+import TeacherProfileScreen from '../screens/TeacherProfileScreen';
+import StudentRequestsScreen from '../screens/StudentRequestsScreen';
+import { Announcement, Teacher } from '../types/models';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -25,6 +28,9 @@ export type AppRootParamList = {
   AnnouncementDetail: { item: Announcement };
   News: undefined;
   Events: undefined;
+  Chat: { teacher: Teacher };
+  TeacherProfile: { teacher: Teacher };
+  StudentRequests: undefined;
 };
 
 type RootStackParamList = {
@@ -77,6 +83,21 @@ function AppNavigator() {
         name="Events"
         component={EventsScreen}
         options={{ ...HEADER_THEME, headerShown: true, headerTitle: 'Etkinlikler' }}
+      />
+      <AppRootStack.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <AppRootStack.Screen
+        name="TeacherProfile"
+        component={TeacherProfileScreen}
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <AppRootStack.Screen
+        name="StudentRequests"
+        component={StudentRequestsScreen}
+        options={{ headerShown: false, animation: 'slide_from_right' }}
       />
     </AppRootStack.Navigator>
   );

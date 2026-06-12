@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Menu } from '../types/models';
-import { dataService } from '../services/dataService';
+import apiClient from '../services/apiClient';
+import { Menu, PagedResult } from '../types/models';
 
 interface UseMenusResult {
   items: Menu[];
-  isLoading: boolean;
+  loading: boolean;
   isLoadingMore: boolean;
   hasNextPage: boolean;
   error: string | null;
@@ -18,15 +18,17 @@ export function useMenus(): UseMenusResult {
   const [items, setItems] = useState<Menu[]>([]);
   const [page, setPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchPage = useCallback(async (targetPage: number, append: boolean) => {
     try {
-      const res = await dataService.getMenus(targetPage, PAGE_SIZE);
+      const res = await apiClient.get<PagedResult<Menu>>('/menus', {
+        params: { page: targetPage, pageSize: PAGE_SIZE },
+      });
       const data = res.data;
-      setItems(prev => append ? [...prev, ...data.items] : data.items);
+      setItems(prev => (append ? [...prev, ...data.items] : data.items));
       setPage(targetPage);
       setHasNextPage(data.hasNextPage);
       setError(null);
@@ -36,9 +38,9 @@ export function useMenus(): UseMenusResult {
   }, []);
 
   const refresh = useCallback(async () => {
-    setIsLoading(true);
+    setLoading(true);
     await fetchPage(1, false);
-    setIsLoading(false);
+    setLoading(false);
   }, [fetchPage]);
 
   const loadMore = useCallback(async () => {
@@ -48,8 +50,7 @@ export function useMenus(): UseMenusResult {
     setIsLoadingMore(false);
   }, [fetchPage, hasNextPage, isLoadingMore, page]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => { refresh(); }, [refresh]);
 
-  return { items, isLoading, isLoadingMore, hasNextPage, error, refresh, loadMore };
+  return { items, loading, isLoadingMore, hasNextPage, error, refresh, loadMore };
 }

@@ -13,7 +13,7 @@ import { useColors } from '../context/ThemeContext';
 export default function MenuScreen() {
   const c = useColors();
   const s = useMemo(() => makeStyles(c), [c]);
-  const { items, isLoading, isLoadingMore, error, refresh, loadMore } = useMenus();
+  const { items, loading, isLoadingMore, error, refresh, loadMore } = useMenus();
   const { toggle, isFavorite } = useFavoriteMenus();
   const [query, setQuery] = useState('');
   const [showFavOnly, setShowFavOnly] = useState(false);
@@ -24,13 +24,13 @@ export default function MenuScreen() {
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter(m =>
-        [m.yemek1, m.yemek2, m.yemek3, m.yemek4].some(y => y?.toLowerCase().includes(q))
+        [m.yemek_1, m.yemek_2, m.yemek_3, m.yemek_4].some(y => y?.toLowerCase().includes(q))
       );
     }
     return list;
   }, [items, query, showFavOnly, isFavorite]);
 
-  if (isLoading && !items.length) {
+  if (loading && !items.length) {
     return (
       <SafeAreaView style={s.safe} edges={['top']}>
         <Header query={query} onQuery={setQuery} showFav={showFavOnly} onToggleFav={() => setShowFavOnly(v => !v)} c={c} s={s} />
@@ -63,7 +63,7 @@ export default function MenuScreen() {
         keyExtractor={item => String(item.id)}
         contentContainerStyle={s.list}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refresh} tintColor={c.primary} />}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={c.primary} />}
         onEndReached={!query && !showFavOnly ? loadMore : undefined}
         onEndReachedThreshold={0.4}
         ListEmptyComponent={
@@ -131,7 +131,7 @@ function Header({ query, onQuery, showFav, onToggleFav, c, s }: any) {
 }
 
 function MenuCard({ item, isFav, onToggleFav, c, s }: { item: Menu; isFav: boolean; onToggleFav: () => void; c: any; s: any }) {
-  const foods = [item.yemek1, item.yemek2, item.yemek3, item.yemek4].filter(Boolean);
+  const foods = [item.yemek_1, item.yemek_2, item.yemek_3, item.yemek_4].filter(Boolean);
   const date = new Date(item.tarih);
   const isActuallyToday = date.toDateString() === new Date().toDateString();
   const dateStr = date.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });

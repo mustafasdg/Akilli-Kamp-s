@@ -9,6 +9,8 @@ namespace SmartCampus.Infrastructure.Persistence
         public static void Initialize(ApplicationDbContext context, IPasswordHasher<User> passwordHasher)
         {
             SeedUsers(context, passwordHasher);
+            SeedTeachers(context, passwordHasher);
+            SeedTeacherSchedules(context);
             SeedLocations(context);
             SeedAnnouncements(context);
             SeedMenus(context);
@@ -47,6 +49,107 @@ namespace SmartCampus.Infrastructure.Persistence
                 context.Users.Add(demoUser);
                 context.SaveChanges();
             }
+        }
+
+        private static void SeedTeachers(ApplicationDbContext context, IPasswordHasher<User> passwordHasher)
+        {
+            var teachers = new[]
+            {
+                new
+                {
+                    Name           = "Dr. Öğr. Üyesi Cevriye ALTINTAŞ",
+                    Email          = "cevriye.altintas@smartcampus.local",
+                    Bio            = "Bilgisayar Mühendisliği alanında yapay zeka ve makine öğrenmesi üzerine araştırmalar yürütmektedir. 2015 yılından bu yana ISUBÜ'de görev yapmaktadır.",
+                    OfficeLocation = "100. Yıl Binası, Oda: B-204",
+                    ResearchAreas  = "Yapay Zeka, Makine Öğrenmesi, Derin Öğrenme, Doğal Dil İşleme",
+                },
+                new
+                {
+                    Name           = "Dr. Öğr. Üyesi Serdar PAÇACI",
+                    Email          = "serdar.pacaci@smartcampus.local",
+                    Bio            = "Yazılım Mühendisliği ve sistem güvenliği konularında uzmanlaşmış olan Dr. Paçaci, çeşitli ulusal ve uluslararası projelerde yer almaktadır.",
+                    OfficeLocation = "100. Yıl Binası, Oda: B-207",
+                    ResearchAreas  = "Yazılım Mühendisliği, Siber Güvenlik, Bulut Bilişim, IoT",
+                },
+            };
+
+            foreach (var t in teachers)
+            {
+                var existing = context.Users.FirstOrDefault(u => u.Email == t.Email);
+                if (existing is null)
+                {
+                    var user = new User
+                    {
+                        Name           = t.Name,
+                        Email          = t.Email,
+                        Role           = "teacher",
+                        Bio            = t.Bio,
+                        OfficeLocation = t.OfficeLocation,
+                        ResearchAreas  = t.ResearchAreas,
+                        CreatedAt      = DateTime.UtcNow,
+                    };
+                    user.PasswordHash = passwordHasher.HashPassword(user, "123456");
+                    context.Users.Add(user);
+                }
+                else if (existing.Bio is null)
+                {
+                    existing.Bio            = t.Bio;
+                    existing.OfficeLocation = t.OfficeLocation;
+                    existing.ResearchAreas  = t.ResearchAreas;
+                    context.Users.Update(existing);
+                }
+            }
+
+            context.SaveChanges();
+        }
+
+        private static void SeedTeacherSchedules(ApplicationDbContext context)
+        {
+            var weekdays = new[]
+            {
+                DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday,
+                DayOfWeek.Thursday, DayOfWeek.Friday,
+            };
+
+            // 9-10, 10-11, …, 16-17 → 8 dilim/gün
+            var slots = Enumerable.Range(9, 8)
+                .Select(h => (Start: new TimeOnly(h, 0), End: new TimeOnly(h + 1, 0)))
+                .ToArray();
+
+            var teacherEmails = new[]
+            {
+                "cevriye.altintas@smartcampus.local",
+                "serdar.pacaci@smartcampus.local",
+            };
+
+            foreach (var email in teacherEmails)
+            {
+                var teacher = context.Users.FirstOrDefault(u => u.Email == email);
+                if (teacher is null) continue;
+
+                foreach (var day in weekdays)
+                {
+                    foreach (var (start, end) in slots)
+                    {
+                        bool exists = context.TeacherSchedules.Any(
+                            s => s.TeacherId == teacher.ID &&
+                                 s.DayOfWeek == day &&
+                                 s.StartTime == start);
+                        if (exists) continue;
+
+                        context.TeacherSchedules.Add(new TeacherSchedule
+                        {
+                            TeacherId   = teacher.ID,
+                            DayOfWeek   = day,
+                            StartTime   = start,
+                            EndTime     = end,
+                            IsAvailable = true,
+                        });
+                    }
+                }
+            }
+
+            context.SaveChanges();
         }
 
         private static void SeedLocations(ApplicationDbContext context)

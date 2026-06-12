@@ -17,6 +17,9 @@ namespace SmartCampus.Infrastructure.Repositories
             Menus = new GenericRepository<Menu>(context);
             Locations = new GenericRepository<Location>(context);
             Users = new GenericRepository<User>(context);
+            Appointments = new GenericRepository<Appointment>(context);
+            TeacherSchedules = new GenericRepository<TeacherSchedule>(context);
+            Messages = new GenericRepository<Message>(context);
         }
 
         public IGenericRepository<Announcement> Announcements { get; }
@@ -25,6 +28,9 @@ namespace SmartCampus.Infrastructure.Repositories
         public IGenericRepository<Menu> Menus { get; }
         public IGenericRepository<Location> Locations { get; }
         public IGenericRepository<User> Users { get; }
+        public IGenericRepository<Appointment> Appointments { get; }
+        public IGenericRepository<TeacherSchedule> TeacherSchedules { get; }
+        public IGenericRepository<Message> Messages { get; }
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
             => _context.SaveChangesAsync(cancellationToken);
