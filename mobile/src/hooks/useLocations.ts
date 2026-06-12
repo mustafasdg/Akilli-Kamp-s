@@ -1,157 +1,36 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Location } from '../types/models';
-import { dataService } from '../services/dataService';
-
-// Gerçek kampüs verileri — Google My Maps'ten alındı (WKT → enlem/boylam)
-// WKT formatı: POINT (boylam enlem) — dönüştürüldü
-const MOCK_LOCATIONS: Location[] = [
-  {
-    id: 1,
-    binaAdi: 'ISUBÜ Rektörlük',
-    enlem: 37.7788716,
-    boylam: 30.5467236,
-    aciklama: 'Isparta Uygulamalı Bilimler Üniversitesi Rektörlük Binası',
-  },
-  {
-    id: 2,
-    binaAdi: 'ISUBÜ 100. Yıl Binası',
-    enlem: 37.7588462,
-    boylam: 30.5478368,
-    aciklama: 'Teknoloji Fakültesi — 100. Yıl Kampüsü',
-  },
-  {
-    id: 3,
-    binaAdi: 'ISUBÜ Orman Fakültesi',
-    enlem: 37.8321242,
-    boylam: 30.5377543,
-    aciklama: 'Isparta Uygulamalı Bilimler Üniversitesi Orman Fakültesi',
-  },
-  {
-    id: 4,
-    binaAdi: 'ISUBÜ Ziraat Fakültesi',
-    enlem: 37.8342812,
-    boylam: 30.5385574,
-    aciklama: 'Isparta Uygulamalı Bilimler Üniversitesi Ziraat Fakültesi',
-  },
-  {
-    id: 5,
-    binaAdi: 'ISUBÜ Eğirdir Su Ürünleri Fak.',
-    enlem: 37.8340148,
-    boylam: 30.5377514,
-    aciklama: 'Su Ürünleri Fakültesi',
-  },
-  {
-    id: 6,
-    binaAdi: 'SDÜ Olimpik Yüzme Havuzu',
-    enlem: 37.8322874,
-    boylam: 30.532964,
-    aciklama: 'SDÜ 29 Ekim Olimpik Yüzme Havuzu',
-  },
-  {
-    id: 7,
-    binaAdi: 'SDÜ Starbucks (WPS)',
-    enlem: 37.831469,
-    boylam: 30.5264379,
-    aciklama: 'SDÜ Kütüphane Starbucks Kafesi',
-  },
-  {
-    id: 8,
-    binaAdi: 'SDÜ Bilgi Merkezi',
-    enlem: 37.8286752,
-    boylam: 30.5318182,
-    aciklama: 'Süleyman Demirel Üniversitesi Kütüphane ve Bilgi Merkezi',
-  },
-  {
-    id: 9,
-    binaAdi: 'Taş Cafe Restaurant',
-    enlem: 37.8294618,
-    boylam: 30.5288812,
-    aciklama: 'Kampüs içi kafe ve restoran',
-  },
-  {
-    id: 10,
-    binaAdi: 'ISUBÜ Isparta MYO',
-    enlem: 37.828549,
-    boylam: 30.5349511,
-    aciklama: 'Isparta Uygulamalı Bilimler Üniversitesi Isparta Meslek Yüksekokulu',
-  },
-  {
-    id: 11,
-    binaAdi: 'ISUBÜ Teknik Bilimler YO',
-    enlem: 37.8321422,
-    boylam: 30.5267975,
-    aciklama: 'İsparta Uygulamalı Bilimler Üniversitesi Teknik Bilimler Yüksekokulu',
-  },
-  {
-    id: 12,
-    binaAdi: 'SDÜ Yemekhanesi',
-    enlem: 37.8260186,
-    boylam: 30.5338802,
-    aciklama: 'Süleyman Demirel Üniversitesi Ana Yemekhanesi',
-  },
-  {
-    id: 13,
-    binaAdi: 'Ateş Döner',
-    enlem: 37.7585782,
-    boylam: 30.5474799,
-    aciklama: '100. Yıl Kampüsü yakını — döner ve yemek',
-  },
-  {
-    id: 14,
-    binaAdi: 'Base Büfe',
-    enlem: 37.758767,
-    boylam: 30.5474641,
-    aciklama: '100. Yıl Kampüsü büfe',
-  },
-  {
-    id: 15,
-    binaAdi: 'ISUBÜ Keçiborlu MYO',
-    enlem: 37.9490346,
-    boylam: 30.3040233,
-    aciklama: 'Isparta Uygulamalı Bilimler Üniversitesi Keçiborlu Meslek Yüksekokulu',
-  },
-];
+import apiClient from '../services/apiClient';
+import { Location, PagedResult } from '../types/models';
 
 interface UseLocationsResult {
   locations: Location[];
-  isLoading: boolean;
+  loading: boolean;
   error: string | null;
-  isMock: boolean;
   refresh: () => Promise<void>;
 }
 
 export function useLocations(): UseLocationsResult {
   const [locations, setLocations] = useState<Location[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMock, setIsMock] = useState(false);
 
   const refresh = useCallback(async () => {
-    setIsLoading(true);
+    setLoading(true);
     setError(null);
     try {
-      const res = await dataService.getLocations(1, 50);
-      const items = res.data.items;
-      if (items.length > 0) {
-        setLocations(items);
-        setIsMock(false);
-      } else {
-        // Backend boş → mock veri göster
-        setLocations(MOCK_LOCATIONS);
-        setIsMock(true);
-      }
+      const res = await apiClient.get<PagedResult<Location>>('/locations', {
+        params: { page: 1, pageSize: 100 },
+      });
+      setLocations(res.data.items);
     } catch {
-      // Erişilemez → mock veri göster
-      setLocations(MOCK_LOCATIONS);
-      setIsMock(true);
-      setError('Backend bağlantısı kurulamadı — örnek veriler gösteriliyor.');
+      setError('Konumlar yüklenemedi. Lütfen tekrar deneyin.');
+      setLocations([]);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => { refresh(); }, [refresh]);
 
-  return { locations, isLoading, error, isMock, refresh };
+  return { locations, loading, error, refresh };
 }

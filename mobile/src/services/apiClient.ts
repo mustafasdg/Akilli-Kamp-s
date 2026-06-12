@@ -1,14 +1,10 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 import { TOKEN_KEY } from '../utils/constants';
 
-// Android emülatörü host makinesiyle 10.0.2.2 üzerinden konuşur;
-// iOS simülatörü ve web doğrudan localhost'u kullanır.
-const BASE_URL = Platform.select({
-  android: 'http://10.0.2.2:5206/api',
-  default: 'http://localhost:5206/api',
-});
+// Fiziksel cihaz testi: bilgisayarın LAN IP'si.
+// Emülatöre dönünce → 'http://10.0.2.2:5206/api' (Android) veya 'http://localhost:5206/api' (iOS).
+const BASE_URL = 'http://172.20.10.3:5206/api';
 
 const apiClient = axios.create({
   baseURL: BASE_URL,

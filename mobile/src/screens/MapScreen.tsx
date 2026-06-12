@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, ActivityIndicator,
@@ -10,17 +10,32 @@ import { useLocations } from '../hooks/useLocations';
 import { Location } from '../types/models';
 import colors from '../theme/colors';
 
-const INITIAL_REGION: Region = {
-  latitude: 37.7964,
-  longitude: 30.5371,
-  latitudeDelta: 0.088,
-  longitudeDelta: 0.032,
+const ISPARTA_REGION: Region = {
+  latitude: 37.8327,
+  longitude: 30.5260,
+  latitudeDelta: 0.05,
+  longitudeDelta: 0.05,
 };
 
 export default function MapScreen() {
-  const { locations, isLoading, isMock } = useLocations();
+  const { locations, loading, error } = useLocations();
   const mapRef = useRef<MapView>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  // Veri yüklenince ilk konuma odaklan
+  useEffect(() => {
+    if (locations.length > 0) {
+      mapRef.current?.animateToRegion(
+        {
+          latitude: locations[0].enlem,
+          longitude: locations[0].boylam,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        },
+        800,
+      );
+    }
+  }, [locations]);
 
   const flyTo = (loc: Location) => {
     setSelectedId(loc.id);
@@ -32,7 +47,10 @@ export default function MapScreen() {
 
   const resetView = () => {
     setSelectedId(null);
-    mapRef.current?.animateToRegion(INITIAL_REGION, 600);
+    const target = locations.length > 0
+      ? { latitude: locations[0].enlem, longitude: locations[0].boylam, latitudeDelta: 0.05, longitudeDelta: 0.05 }
+      : ISPARTA_REGION;
+    mapRef.current?.animateToRegion(target, 600);
   };
 
   return (
@@ -42,7 +60,7 @@ export default function MapScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>Kampüs Haritası</Text>
-          {!isLoading && (
+          {!loading && (
             <View style={styles.countPill}>
               <Text style={styles.countText}>{locations.length} bina</Text>
             </View>
@@ -53,10 +71,10 @@ export default function MapScreen() {
         </TouchableOpacity>
       </View>
 
-      {isMock && (
-        <View style={styles.mockBanner}>
-          <Ionicons name="information-circle-outline" size={14} color={colors.warning} />
-          <Text style={styles.mockText}>Örnek veriler — backend bağlantısı yok</Text>
+      {error && (
+        <View style={styles.errorBanner}>
+          <Ionicons name="alert-circle-outline" size={14} color={colors.error} />
+          <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
 
@@ -65,7 +83,7 @@ export default function MapScreen() {
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_DEFAULT}
-        initialRegion={INITIAL_REGION}
+        initialRegion={ISPARTA_REGION}
         showsUserLocation
         showsCompass
         showsScale
@@ -92,7 +110,7 @@ export default function MapScreen() {
 
       {/* ── Alt bina listesi — haritanın altında, OVERLAY DEĞİL */}
       <View style={styles.bottomPanel}>
-        {isLoading ? (
+        {loading ? (
           <ActivityIndicator color={colors.primary} style={{ padding: 12 }} />
         ) : (
           <ScrollView
@@ -131,7 +149,6 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
 
-  // Başlık
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
@@ -139,7 +156,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.primary },
   countPill: {
     backgroundColor: colors.primaryLight, borderRadius: 10,
     paddingHorizontal: 8, paddingVertical: 2,
@@ -151,19 +168,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
 
-  // Mock banner
-  mockBanner: {
+  errorBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: colors.warningLight,
+    backgroundColor: colors.errorLight,
     paddingHorizontal: 16, paddingVertical: 7,
-    borderBottomWidth: 1, borderBottomColor: colors.warning,
+    borderBottomWidth: 1, borderBottomColor: colors.error,
   },
-  mockText: { fontSize: 12, color: colors.warning, fontWeight: '500' },
+  errorText: { fontSize: 12, color: colors.error, fontWeight: '500' },
 
-  // Harita — tüm kalan alanı kaplar
   map: { flex: 1 },
 
-  // Alt panel — haritanın ALTINDA, overlay değil
   bottomPanel: {
     backgroundColor: colors.surface,
     borderTopWidth: 1, borderTopColor: colors.border,
@@ -181,7 +195,6 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 13, fontWeight: '600', color: colors.primary },
   chipTextActive: { color: '#fff' },
 
-  // Callout
   callout: {
     minWidth: 160, maxWidth: 220,
     padding: 10, gap: 4,
