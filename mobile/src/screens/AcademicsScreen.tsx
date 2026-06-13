@@ -139,7 +139,9 @@ function TeacherCard({
   s: ReturnType<typeof makeStyles>; c: any;
 }) {
   const dept = teacher.department ?? inferDepartment(teacher.email);
-  const available = teacher.isAvailableToday;
+  // Anlık saat dilimine göre durum (useTeachers hesaplar): müsait → yeşil, değilse → kırmızı
+  const available = teacher.currentStatus?.available ?? false;
+  const label     = teacher.currentStatus?.label ?? 'Müsait Değil';
 
   return (
     <TouchableOpacity style={s.card} onPress={onPress} activeOpacity={0.85}>
@@ -167,11 +169,7 @@ function TeacherCard({
                 { color: available ? c.success : c.error },
               ]}
             >
-              {available === undefined
-                ? 'Program Yok'
-                : available
-                ? 'Bugün Müsait'
-                : 'Bugün Dolu'}
+              {label}
             </Text>
           </View>
         </View>

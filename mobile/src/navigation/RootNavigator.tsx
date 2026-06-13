@@ -7,6 +7,7 @@ import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import AnnouncementDetailScreen from '../screens/AnnouncementDetailScreen';
+import AnnouncementsScreen from '../screens/AnnouncementsScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import NewsScreen from '../screens/NewsScreen';
 import EventsScreen from '../screens/EventsScreen';
@@ -16,6 +17,9 @@ import TeacherProfileScreen from '../screens/TeacherProfileScreen';
 import StudentRequestsScreen from '../screens/StudentRequestsScreen';
 import TeacherDashboardScreen from '../screens/TeacherDashboardScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import MyAppointmentsScreen from '../screens/MyAppointmentsScreen';
+import TeacherMessagesScreen from '../screens/TeacherMessagesScreen';
+import AiAssistantScreen from '../screens/AiAssistantScreen';
 import { Announcement, Teacher } from '../types/models';
 
 export type AuthStackParamList = {
@@ -27,6 +31,7 @@ export type AuthStackParamList = {
 export type AppRootParamList = {
   MainTabs: undefined;
   EditProfile: undefined;
+  Announcements: undefined;
   AnnouncementDetail: { item: Announcement };
   News: undefined;
   Events: undefined;
@@ -34,7 +39,10 @@ export type AppRootParamList = {
   TeacherProfile: { teacher: Teacher };
   StudentRequests: undefined;
   TeacherDashboard: undefined;
+  TeacherMessages: undefined;
   Notifications: undefined;
+  MyAppointments: undefined;
+  AiAssistant: undefined;
 };
 
 type RootStackParamList = {
@@ -74,6 +82,11 @@ function AppNavigator() {
         options={{ animation: 'slide_from_right' }}
       />
       <AppRootStack.Screen
+        name="Announcements"
+        component={AnnouncementsScreen}
+        options={{ ...HEADER_THEME, headerShown: true, headerTitle: 'Duyurular' }}
+      />
+      <AppRootStack.Screen
         name="AnnouncementDetail"
         component={AnnouncementDetailScreen}
         options={{ animation: 'slide_from_right' }}
@@ -111,6 +124,21 @@ function AppNavigator() {
       <AppRootStack.Screen
         name="Notifications"
         component={NotificationsScreen}
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <AppRootStack.Screen
+        name="MyAppointments"
+        component={MyAppointmentsScreen}
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <AppRootStack.Screen
+        name="TeacherMessages"
+        component={TeacherMessagesScreen}
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <AppRootStack.Screen
+        name="AiAssistant"
+        component={AiAssistantScreen}
         options={{ headerShown: false, animation: 'slide_from_right' }}
       />
     </AppRootStack.Navigator>

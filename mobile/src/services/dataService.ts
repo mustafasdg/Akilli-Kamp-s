@@ -1,10 +1,24 @@
 import apiClient from './apiClient';
+import aiClient from './aiClient';
 import {
   Announcement, Menu, Location, News, Event, PagedResult,
-  Message, Teacher, TeacherSchedule,
+  Message, ConversationSummary, Teacher, TeacherSchedule,
   Appointment, CreateAppointmentRequest, AppointmentStatus,
-  AppNotification, ScheduleRequest,
+  AppNotification, ScheduleRequest, AiChatResponse,
 } from '../types/models';
+
+// Backend, DayOfWeek enum'unu JsonStringEnumConverter ile "Monday" gibi string döndürür;
+// tüm mobil tüketiciler ise sayısal (0=Pazar … 6=Cumartesi) bekler. Sınırda normalize edilir.
+const DAY_NAME_TO_NUM: Record<string, number> = {
+  Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
+};
+
+function normalizeDayOfWeek(value: number | string): number {
+  if (typeof value === 'number') return value;
+  if (value in DAY_NAME_TO_NUM) return DAY_NAME_TO_NUM[value];
+  const n = Number(value);
+  return Number.isNaN(n) ? 0 : n;
+}
 
 export const dataService = {
   // ── Mevcut ────────────────────────────────────────────────────────────────
@@ -27,8 +41,11 @@ export const dataService = {
   getTeachers: () =>
     apiClient.get<Teacher[]>('/users', { params: { role: 'teacher' } }),
 
-  getTeacherSchedules: (teacherId: number) =>
-    apiClient.get<TeacherSchedule[]>(`/schedules/${teacherId}`),
+  getTeacherSchedules: async (teacherId: number) => {
+    const res = await apiClient.get<TeacherSchedule[]>(`/schedules/${teacherId}`);
+    res.data = res.data.map(s => ({ ...s, dayOfWeek: normalizeDayOfWeek(s.dayOfWeek) }));
+    return res;
+  },
 
   // ── Hoca program yönetimi ─────────────────────────────────────────────────
   createSchedule: (body: ScheduleRequest) =>
@@ -46,6 +63,13 @@ export const dataService = {
     apiClient.put<TeacherSchedule>(`/schedules/${id}/reset`),
 
   // ── Mesajlaşma ────────────────────────────────────────────────────────────
+  getConversations: () =>
+    apiClient.get<ConversationSummary[]>('/messages/conversations'),
+
+  /** Öğretmene özel: randevu almış + mesajlaşmış tüm öğrenciler */
+  getTeacherConversations: () =>
+    apiClient.get<ConversationSummary[]>('/messages/teacher/conversations'),
+
   getConversation: (otherUserId: number) =>
     apiClient.get<Message[]>(`/messages/conversation/${otherUserId}`),
 
@@ -76,4 +100,9 @@ export const dataService = {
 
   markNotificationRead: (id: number) =>
     apiClient.put<void>(`/notifications/${id}/read`),
+
+  // ── AI Asistanı (Python servisi, port 8000) ─────────────────────────────────
+  /** Mesajı LangGraph ajanına gönderir. sessionId her kullanıcı için ayrı hafıza tutar. */
+  sendAiMessage: (message: string, sessionId: string) =>
+    aiClient.post<AiChatResponse>('/chat', { message, session_id: sessionId }),
 };

@@ -88,6 +88,19 @@ export interface PagedResult<T> {
 
 // ─── Messaging ────────────────────────────────────────────────────────────────
 
+// Sistem mesajına bağlı randevunun GÜNCEL durumu (backend her istekte taze çeker).
+export interface AppointmentInfo {
+  id: number;
+  appointmentDate: string; // ISO 8601
+  /** 0 = Pending, 1 = Approved, 2 = Rejected */
+  status: number;
+  description?: string;
+  teacherName: string;
+  studentName: string;
+  /** Randevu reddedildiyse hocanın girdiği sebep / önerilen saat */
+  rejectionReason?: string | null;
+}
+
 // GET /api/messages/conversation/{otherUserId}
 export interface Message {
   id: number;
@@ -96,9 +109,31 @@ export interface Message {
   content: string;
   timestamp: string;   // ISO 8601
   isRead: boolean;
+  /** Sistem mesajı (interaktif randevu kartı) ise true */
+  isSystemMessage: boolean;
+  relatedAppointmentId?: number | null;
+  /** Yalnızca sistem mesajlarında dolu; randevunun güncel durumunu taşır */
+  relatedAppointment?: AppointmentInfo | null;
+}
+
+// GET /api/messages/conversations  veya  GET /api/messages/teacher/conversations
+export interface ConversationSummary {
+  partnerId: number;
+  partnerName: string;
+  lastMessage: string;
+  lastMessageTime: string; // ISO 8601
+  unreadCount: number;
 }
 
 // ─── Academic Staff ───────────────────────────────────────────────────────────
+
+/** Akademisyenin şu anki (anlık saat dilimine göre) durumu — useTeachers istemci tarafında hesaplar. */
+export interface TeacherLiveStatus {
+  /** 'Şu an Müsait' | 'Şu an Derste' | 'Müsait Değil' */
+  label: string;
+  /** true → yeşil/mavi (müsait), false → kırmızı (derste/dolu/mesai dışı) */
+  available: boolean;
+}
 
 // GET /api/users?role=teacher
 export interface Teacher {
@@ -111,8 +146,12 @@ export interface Teacher {
   bio?: string;
   officeLocation?: string;
   researchAreas?: string;
-  /** useTeachers hook'u tarafından istemci tarafında hesaplanır */
-  isAvailableToday?: boolean;
+  /** Öğretim üyesinin oda numarası */
+  roomNumber?: string;
+  /** Öğretim üyesinin uzmanlık alanı */
+  specialty?: string;
+  /** useTeachers tarafından anlık (şu anki saat dilimine göre) hesaplanır */
+  currentStatus?: TeacherLiveStatus;
 }
 
 // GET /api/schedules/{teacherId}
@@ -183,4 +222,23 @@ export interface ScheduleRequest {
   type?: 'Müsait' | 'EkDers';
   courseName?: string;
   classLocation?: string;
+}
+
+// ─── AI Asistanı (Python LangGraph servisi, port 8000) ────────────────────────
+
+// POST /chat  (ai_service)
+export interface AiChatRequest {
+  message: string;
+  /** Her kullanıcı için ayrı hafıza: genelde `user-{userId}` */
+  session_id: string;
+}
+
+/** Ajanın o istekte arka planda çağırdığı araçlar (geliştirme/hata ayıklama). */
+export interface AiDebugInfo {
+  tools_called: string[];
+}
+
+export interface AiChatResponse {
+  reply: string;
+  debug_info: AiDebugInfo;
 }

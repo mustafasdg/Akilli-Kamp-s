@@ -12,8 +12,8 @@ using SmartCampus.Infrastructure.Context;
 namespace SmartCampus.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260612160638_AddChatAndAppointmentIntegration")]
-    partial class AddChatAndAppointmentIntegration
+    [Migration("20260613123748_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -81,7 +81,10 @@ namespace SmartCampus.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("MessageId")
+                    b.Property<string>("RejectionReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ScheduleId")
                         .HasColumnType("int");
 
                     b.Property<int>("Status")
@@ -90,12 +93,15 @@ namespace SmartCampus.Infrastructure.Migrations
                     b.Property<int>("StudentId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("SuggestedTime")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("TeacherId")
                         .HasColumnType("int");
 
                     b.HasKey("ID");
 
-                    b.HasIndex("MessageId");
+                    b.HasIndex("ScheduleId");
 
                     b.HasIndex("StudentId");
 
@@ -219,7 +225,13 @@ namespace SmartCampus.Infrastructure.Migrations
                     b.Property<bool>("IsRead")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsSystemMessage")
+                        .HasColumnType("bit");
+
                     b.Property<int>("ReceiverId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RelatedAppointmentId")
                         .HasColumnType("int");
 
                     b.Property<int>("SenderId")
@@ -231,6 +243,8 @@ namespace SmartCampus.Infrastructure.Migrations
                     b.HasKey("ID");
 
                     b.HasIndex("ReceiverId");
+
+                    b.HasIndex("RelatedAppointmentId");
 
                     b.HasIndex("SenderId", "ReceiverId", "Timestamp");
 
@@ -270,6 +284,43 @@ namespace SmartCampus.Infrastructure.Migrations
                     b.ToTable("News");
                 });
 
+            modelBuilder.Entity("SmartCampus.Domain.Entities.Notification", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<int?>("AppointmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("AppointmentId");
+
+                    b.HasIndex("UserId", "IsRead");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("SmartCampus.Domain.Entities.TeacherSchedule", b =>
                 {
                     b.Property<int>("ID")
@@ -277,6 +328,12 @@ namespace SmartCampus.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<string>("ClassLocation")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CourseName")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("DayOfWeek")
                         .HasColumnType("int");
@@ -291,6 +348,9 @@ namespace SmartCampus.Infrastructure.Migrations
                         .HasColumnType("time");
 
                     b.Property<int>("TeacherId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
                         .HasColumnType("int");
 
                     b.HasKey("ID");
@@ -309,6 +369,10 @@ namespace SmartCampus.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
 
+                    b.Property<string>("Bio")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -322,14 +386,30 @@ namespace SmartCampus.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("OfficeLocation")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ResearchAreas")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("RoomNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Specialty")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
 
                     b.HasKey("ID");
 
@@ -358,9 +438,9 @@ namespace SmartCampus.Infrastructure.Migrations
 
             modelBuilder.Entity("SmartCampus.Domain.Entities.Appointment", b =>
                 {
-                    b.HasOne("SmartCampus.Domain.Entities.Message", "Message")
+                    b.HasOne("SmartCampus.Domain.Entities.TeacherSchedule", "Schedule")
                         .WithMany()
-                        .HasForeignKey("MessageId")
+                        .HasForeignKey("ScheduleId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("SmartCampus.Domain.Entities.User", "Student")
@@ -375,7 +455,7 @@ namespace SmartCampus.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Message");
+                    b.Navigation("Schedule");
 
                     b.Navigation("Student");
 
@@ -407,6 +487,11 @@ namespace SmartCampus.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("SmartCampus.Domain.Entities.Appointment", "RelatedAppointment")
+                        .WithMany()
+                        .HasForeignKey("RelatedAppointmentId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("SmartCampus.Domain.Entities.User", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
@@ -414,6 +499,8 @@ namespace SmartCampus.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Receiver");
+
+                    b.Navigation("RelatedAppointment");
 
                     b.Navigation("Sender");
                 });
@@ -426,6 +513,24 @@ namespace SmartCampus.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("AppUser");
+                });
+
+            modelBuilder.Entity("SmartCampus.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("SmartCampus.Domain.Entities.Appointment", "Appointment")
+                        .WithMany()
+                        .HasForeignKey("AppointmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("SmartCampus.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Appointment");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("SmartCampus.Domain.Entities.TeacherSchedule", b =>

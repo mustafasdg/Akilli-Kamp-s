@@ -1,0 +1,13 @@
+# Ortam değişkenleri (gizli anahtarlar)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Sanal ortamlar
+venv/
+.venv/
+env/

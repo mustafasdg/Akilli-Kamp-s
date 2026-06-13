@@ -21,6 +21,7 @@ import colors from '../theme/colors';
 import { AppTabParamList } from '../navigation/AppTabs';
 import { AppRootParamList } from '../navigation/RootNavigator';
 import UserAvatar from '../components/UserAvatar';
+import AiAssistantFab from '../components/AiAssistantFab';
 import { formatName } from '../utils/avatarUtils';
 import { useNotifications } from '../hooks/useNotifications';
 
@@ -85,13 +86,6 @@ export default function HomeScreen() {
             <Text style={styles.greeting} numberOfLines={1}>{greeting} 👋</Text>
             <Text style={styles.userName} numberOfLines={1}>{formatName(user?.name ?? '')}</Text>
           </View>
-          <TouchableOpacity
-            style={styles.bellBtn}
-            onPress={() => navigation.navigate('Announcements')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="notifications-outline" size={22} color={colors.primary} />
-          </TouchableOpacity>
         </View>
 
         {/* ── 2. Hava Durumu Şeridi ─────────────────────────────*/}
@@ -242,6 +236,9 @@ export default function HomeScreen() {
           ))
         )}
       </ScrollView>
+
+      {/* AI Kampüs Asistanı — sağ-altta kayan buton (tab bar'ın üzerinde durur) */}
+      <AiAssistantFab />
     </SafeAreaView>
   );
 }
@@ -401,12 +398,6 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1 },
   greeting:  { fontSize: 13, color: colors.textMuted, fontWeight: '500' },
   userName:  { fontSize: 18, fontWeight: '700', color: colors.text, marginTop: 1 },
-  bellBtn: {
-    width: 42, height: 42, borderRadius: 21,
-    justifyContent: 'center', alignItems: 'center',
-    backgroundColor: colors.primaryLight,
-  },
-
   // ── 2. Hava durumu
   weatherStrip: {
     marginHorizontal: 20,

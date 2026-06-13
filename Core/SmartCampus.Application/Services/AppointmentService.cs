@@ -90,6 +90,9 @@ namespace SmartCampus.Application.Services
 
             await _uow.Appointments.AddAsync(appointment, ct);
             await _uow.SaveChangesAsync(ct);
+
+            // NOT: Sistem mesajı oluşturma sorumluluğu CreateAppointmentCommandHandler'a
+            // taşındı. Bu servis yalnızca randevu mantığını yönetir (mesaj modülünden izole).
             return appointment;
         }
 
@@ -242,6 +245,7 @@ namespace SmartCampus.Application.Services
             }
 
             await _uow.SaveChangesAsync(ct);
+
             return appointment;
         }
     }

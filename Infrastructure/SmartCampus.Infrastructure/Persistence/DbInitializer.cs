@@ -63,6 +63,8 @@ namespace SmartCampus.Infrastructure.Persistence
                     Bio            = "Bilgisayar Mühendisliği alanında yapay zeka ve makine öğrenmesi üzerine araştırmalar yürütmektedir. 2015 yılından bu yana ISUBÜ'de görev yapmaktadır.",
                     OfficeLocation = "100. Yıl Binası, Oda: B-204",
                     ResearchAreas  = "Yapay Zeka, Makine Öğrenmesi, Derin Öğrenme, Doğal Dil İşleme",
+                    RoomNumber     = "B-204",
+                    Specialty      = "Yapay Zeka ve Makine Öğrenmesi",
                 },
                 new
                 {
@@ -71,6 +73,8 @@ namespace SmartCampus.Infrastructure.Persistence
                     Bio            = "Yazılım Mühendisliği ve sistem güvenliği konularında uzmanlaşmış olan Dr. Paçaci, çeşitli ulusal ve uluslararası projelerde yer almaktadır.",
                     OfficeLocation = "100. Yıl Binası, Oda: B-207",
                     ResearchAreas  = "Yazılım Mühendisliği, Siber Güvenlik, Bulut Bilişim, IoT",
+                    RoomNumber     = "B-207",
+                    Specialty      = "Siber Güvenlik ve Yazılım Mühendisliği",
                 },
             };
 
@@ -87,16 +91,20 @@ namespace SmartCampus.Infrastructure.Persistence
                         Bio            = t.Bio,
                         OfficeLocation = t.OfficeLocation,
                         ResearchAreas  = t.ResearchAreas,
+                        RoomNumber     = t.RoomNumber,
+                        Specialty      = t.Specialty,
                         CreatedAt      = DateTime.UtcNow,
                     };
                     user.PasswordHash = passwordHasher.HashPassword(user, "123456");
                     context.Users.Add(user);
                 }
-                else if (existing.Bio is null)
+                else if (existing.Bio is null || existing.Specialty is null)
                 {
                     existing.Bio            = t.Bio;
                     existing.OfficeLocation = t.OfficeLocation;
                     existing.ResearchAreas  = t.ResearchAreas;
+                    existing.RoomNumber     = t.RoomNumber;
+                    existing.Specialty      = t.Specialty;
                     context.Users.Update(existing);
                 }
             }

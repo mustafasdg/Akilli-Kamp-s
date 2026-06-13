@@ -78,9 +78,6 @@ namespace SmartCampus.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("MessageId")
-                        .HasColumnType("int");
-
                     b.Property<string>("RejectionReason")
                         .HasColumnType("nvarchar(max)");
 
@@ -100,8 +97,6 @@ namespace SmartCampus.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("ID");
-
-                    b.HasIndex("MessageId");
 
                     b.HasIndex("ScheduleId");
 
@@ -227,7 +222,13 @@ namespace SmartCampus.Infrastructure.Migrations
                     b.Property<bool>("IsRead")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsSystemMessage")
+                        .HasColumnType("bit");
+
                     b.Property<int>("ReceiverId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RelatedAppointmentId")
                         .HasColumnType("int");
 
                     b.Property<int>("SenderId")
@@ -239,6 +240,8 @@ namespace SmartCampus.Infrastructure.Migrations
                     b.HasKey("ID");
 
                     b.HasIndex("ReceiverId");
+
+                    b.HasIndex("RelatedAppointmentId");
 
                     b.HasIndex("SenderId", "ReceiverId", "Timestamp");
 
@@ -397,6 +400,14 @@ namespace SmartCampus.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("RoomNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Specialty")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
                     b.HasKey("ID");
 
                     b.HasIndex("Email")
@@ -424,11 +435,6 @@ namespace SmartCampus.Infrastructure.Migrations
 
             modelBuilder.Entity("SmartCampus.Domain.Entities.Appointment", b =>
                 {
-                    b.HasOne("SmartCampus.Domain.Entities.Message", "Message")
-                        .WithMany()
-                        .HasForeignKey("MessageId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("SmartCampus.Domain.Entities.TeacherSchedule", "Schedule")
                         .WithMany()
                         .HasForeignKey("ScheduleId")
@@ -445,8 +451,6 @@ namespace SmartCampus.Infrastructure.Migrations
                         .HasForeignKey("TeacherId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("Message");
 
                     b.Navigation("Schedule");
 
@@ -480,6 +484,11 @@ namespace SmartCampus.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("SmartCampus.Domain.Entities.Appointment", "RelatedAppointment")
+                        .WithMany()
+                        .HasForeignKey("RelatedAppointmentId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("SmartCampus.Domain.Entities.User", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
@@ -487,6 +496,8 @@ namespace SmartCampus.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Receiver");
+
+                    b.Navigation("RelatedAppointment");
 
                     b.Navigation("Sender");
                 });

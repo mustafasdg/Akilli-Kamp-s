@@ -32,5 +32,13 @@ namespace SmartCampus.Domain.Entities
 
         [MaxLength(500)]
         public string? ResearchAreas { get; set; }
+
+        /// <summary>Öğretim üyesinin oda numarası (yalnızca teacher rolünde dolu).</summary>
+        [MaxLength(50)]
+        public string? RoomNumber { get; set; }
+
+        /// <summary>Öğretim üyesinin uzmanlık alanı (yalnızca teacher rolünde dolu).</summary>
+        [MaxLength(150)]
+        public string? Specialty { get; set; }
     }
 }

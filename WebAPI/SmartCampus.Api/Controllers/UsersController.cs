@@ -45,6 +45,8 @@ namespace SmartCampus.Api.Controllers
                 Bio            = u.Bio,
                 OfficeLocation = u.OfficeLocation,
                 ResearchAreas  = u.ResearchAreas,
+                RoomNumber     = u.RoomNumber,
+                Specialty      = u.Specialty,
             });
 
             return Ok(result);
@@ -72,6 +74,8 @@ namespace SmartCampus.Api.Controllers
                 Bio            = user.Bio,
                 OfficeLocation = user.OfficeLocation,
                 ResearchAreas  = user.ResearchAreas,
+                RoomNumber     = user.RoomNumber,
+                Specialty      = user.Specialty,
             });
         }
     }
@@ -85,5 +89,7 @@ namespace SmartCampus.Api.Controllers
         public string? Bio            { get; init; }
         public string? OfficeLocation { get; init; }
         public string? ResearchAreas  { get; init; }
+        public string? RoomNumber     { get; init; }
+        public string? Specialty      { get; init; }
     }
 }

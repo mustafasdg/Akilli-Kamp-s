@@ -4,23 +4,24 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useColors } from '../context/ThemeContext';
 import HomeScreen from '../screens/HomeScreen';
-import AnnouncementsScreen from '../screens/AnnouncementsScreen';
 import MenuScreen from '../screens/MenuScreen';
 import MapScreen from '../screens/MapScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import AdminScreen from '../screens/AdminScreen';
 import AcademicsScreen from '../screens/AcademicsScreen';
-import StudentRequestsScreen from '../screens/StudentRequestsScreen';
+import TeacherMessagesScreen from '../screens/TeacherMessagesScreen';
 
 export type AppTabParamList = {
   Home: undefined;
-  Announcements: undefined;
   Menu: undefined;
   Academics: undefined;
   Map: undefined;
+  Messages: undefined;
   Profile: undefined;
   Admin: undefined;
 };
+// Not: Öğretmenler için "Academics" sekmesi artık gösterilmiyor.
+// StudentRequestsScreen'e TeacherDashboard → Randevu Talepleri üzerinden ulaşılır.
 
 const Tab = createBottomTabNavigator<AppTabParamList>();
 
@@ -30,13 +31,13 @@ const TAB_CONFIG: Record<
   keyof AppTabParamList,
   { label: string; icon: IoniconName; iconOutline: IoniconName }
 > = {
-  Home:          { label: 'Ana Sayfa',  icon: 'home',        iconOutline: 'home-outline' },
-  Announcements: { label: 'Duyurular', icon: 'megaphone',    iconOutline: 'megaphone-outline' },
-  Menu:          { label: 'Yemekhane', icon: 'restaurant',   iconOutline: 'restaurant-outline' },
-  Academics:     { label: 'Akademik',  icon: 'school',       iconOutline: 'school-outline' },
-  Map:           { label: 'Harita',    icon: 'map',          iconOutline: 'map-outline' },
-  Profile:       { label: 'Profil',    icon: 'person',       iconOutline: 'person-outline' },
-  Admin:         { label: 'Admin',     icon: 'shield',       iconOutline: 'shield-outline' },
+  Home:      { label: 'Ana Sayfa',       icon: 'home',           iconOutline: 'home-outline' },
+  Menu:      { label: 'Yemekhane',       icon: 'restaurant',     iconOutline: 'restaurant-outline' },
+  Academics: { label: 'Akademisyenler',  icon: 'school',         iconOutline: 'school-outline' },
+  Map:       { label: 'Harita',          icon: 'map',            iconOutline: 'map-outline' },
+  Messages:  { label: 'Mesajlar',        icon: 'chatbubbles',    iconOutline: 'chatbubbles-outline' },
+  Profile:   { label: 'Profil',          icon: 'person',         iconOutline: 'person-outline' },
+  Admin:     { label: 'Admin',           icon: 'shield',         iconOutline: 'shield-outline' },
 };
 
 export default function AppTabs() {
@@ -74,26 +75,22 @@ export default function AppTabs() {
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Announcements" component={AnnouncementsScreen} />
       <Tab.Screen name="Menu" component={MenuScreen} />
-      {/* Öğrenci → Akademisyenler listesi  |  Hoca → Randevu talepleri */}
-      <Tab.Screen
-        name="Academics"
-        component={isTeacher ? StudentRequestsScreen : AcademicsScreen}
-        options={{
-          tabBarLabel: isTeacher ? 'Öğrenciler' : 'Akademik',
-          tabBarIcon: ({ focused, color, size }) => (
-            <Ionicons
-              name={focused
-                ? (isTeacher ? 'people' : 'school')
-                : (isTeacher ? 'people-outline' : 'school-outline')}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
+      {/* Öğrenci → Akademisyenler listesi; Hoca → Akademisyenler sekmesi yok */}
+      {!isTeacher && (
+        <Tab.Screen name="Academics" component={AcademicsScreen} />
+      )}
       <Tab.Screen name="Map" component={MapScreen} />
+      {/* Öğretmenler için birleşik Sohbetler sekmesi */}
+      {isTeacher && (
+        <Tab.Screen
+          name="Messages"
+          component={TeacherMessagesScreen}
+          options={{
+            tabBarLabel: 'Sohbetler',
+          }}
+        />
+      )}
       <Tab.Screen name="Profile" component={ProfileScreen} />
       {isAdmin && (
         <Tab.Screen

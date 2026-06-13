@@ -5,7 +5,10 @@ using Microsoft.AspNetCore.Mvc;
 using SmartCampus.Application.Features.Messages.Commands.MarkAsRead;
 using SmartCampus.Application.Features.Messages.Commands.SendMessage;
 using SmartCampus.Application.Features.Messages.Queries.GetConversation;
+using SmartCampus.Application.Features.Messages.Queries.GetConversations;
+using SmartCampus.Application.Features.Messages.Queries.GetTeacherConversations;
 using SmartCampus.Domain.Entities;
+using MessageDto = SmartCampus.Application.Features.Messages.Queries.GetConversation.MessageDto;
 
 namespace SmartCampus.Api.Controllers
 {
@@ -22,12 +25,41 @@ namespace SmartCampus.Api.Controllers
         }
 
         /// <summary>
+        /// Giriş yapan kullanıcının tüm aktif konuşmalarını (son mesaj + okunmamış sayısı) getirir.
+        /// GET /api/messages/conversations
+        /// </summary>
+        [HttpGet("conversations")]
+        public async Task<ActionResult<IReadOnlyList<ConversationSummaryDto>>> GetConversations()
+        {
+            var currentUserId = GetCurrentUserId();
+            if (currentUserId is null) return Unauthorized();
+
+            var result = await _mediator.Send(new GetConversationsQuery { UserId = currentUserId.Value });
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Öğretmenin randevu almış veya mesajlaşmış tüm öğrencilerini getirir.
+        /// GET /api/messages/teacher/conversations
+        /// </summary>
+        [HttpGet("teacher/conversations")]
+        public async Task<ActionResult<IReadOnlyList<ConversationSummaryDto>>> GetTeacherConversations()
+        {
+            var currentUserId = GetCurrentUserId();
+            if (currentUserId is null) return Unauthorized();
+
+            var result = await _mediator.Send(
+                new GetTeacherConversationsQuery { TeacherId = currentUserId.Value });
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Giriş yapan kullanıcı ile belirtilen kullanıcı arasındaki
         /// konuşmayı kronolojik sırayla getirir.
         /// GET /api/messages/conversation/{otherUserId}
         /// </summary>
         [HttpGet("conversation/{otherUserId:int}")]
-        public async Task<ActionResult<IReadOnlyList<Message>>> GetConversation(int otherUserId)
+        public async Task<ActionResult<IReadOnlyList<MessageDto>>> GetConversation(int otherUserId)
         {
             var currentUserId = GetCurrentUserId();
             if (currentUserId is null) return Unauthorized();

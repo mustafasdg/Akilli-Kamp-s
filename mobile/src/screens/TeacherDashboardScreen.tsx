@@ -3,12 +3,15 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   ActivityIndicator, Modal, Alert, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
+import { AppRootParamList } from '../navigation/RootNavigator';
 import { useColors } from '../context/ThemeContext';
 import { dataService } from '../services/dataService';
+import AiAssistantFab from '../components/AiAssistantFab';
 import { TeacherSchedule, Appointment, AppointmentStatus } from '../types/models';
 
 const DAY_FULL  = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
@@ -21,7 +24,8 @@ type SlotState = 'musait' | 'randevulu' | 'ders' | 'ekders';
 export default function TeacherDashboardScreen() {
   const c          = useColors();
   const s          = useMemo(() => makeStyles(c), [c]);
-  const navigation = useNavigation();
+  const insets     = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<AppRootParamList>>();
   const { user }   = useAuth();
 
   const [schedules,    setSchedules]    = useState<TeacherSchedule[]>([]);
@@ -262,9 +266,18 @@ export default function TeacherDashboardScreen() {
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Ders Programı Yönetimi</Text>
-        <TouchableOpacity onPress={fetchAll} hitSlop={12}>
-          <Ionicons name="refresh-outline" size={22} color="#fff" />
-        </TouchableOpacity>
+        <View style={s.headerActions}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('TeacherMessages')}
+            hitSlop={10}
+            style={s.msgIconBtn}
+          >
+            <Ionicons name="chatbubbles-outline" size={22} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={fetchAll} hitSlop={12}>
+            <Ionicons name="refresh-outline" size={22} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Gün sekmeleri */}
@@ -413,6 +426,9 @@ export default function TeacherDashboardScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* AI Kampüs Asistanı — sağ-altta kayan buton */}
+      <AiAssistantFab bottom={insets.bottom + 16} />
     </SafeAreaView>
   );
 }
@@ -429,6 +445,8 @@ const makeStyles = (c: ReturnType<typeof useColors>) =>
       flex: 1, color: '#fff', fontSize: 17, fontWeight: '700',
       textAlign: 'center', marginHorizontal: 8,
     },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    msgIconBtn:    { padding: 2 },
 
     dayTabsWrap: { flexGrow: 0 },
     dayTabs: { gap: 8, padding: 16, paddingBottom: 8 },

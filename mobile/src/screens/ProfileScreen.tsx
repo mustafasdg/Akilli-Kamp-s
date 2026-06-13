@@ -106,6 +106,22 @@ export default function ProfileScreen() {
                 label="Ders Programını Güncelle"
                 onPress={() => navigation.navigate('TeacherDashboard')}
               />
+              <Divider />
+              <ActionRow
+                icon="chatbubbles-outline"
+                label="Mesajlarım"
+                onPress={() => navigation.navigate('TeacherMessages')}
+              />
+            </>
+          )}
+          {user?.role !== 'teacher' && user?.role !== 'admin' && (
+            <>
+              <Divider />
+              <ActionRow
+                icon="calendar-outline"
+                label="Randevularım"
+                onPress={() => navigation.navigate('MyAppointments')}
+              />
             </>
           )}
         </View>

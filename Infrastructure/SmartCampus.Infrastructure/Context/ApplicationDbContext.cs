@@ -130,6 +130,14 @@ namespace SmartCampus.Infrastructure.Context
                 .HasForeignKey(m => m.ReceiverId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Message -> RelatedAppointment (opsiyonel; sistem mesajinin bagli oldugu randevu)
+            // Randevu silinince ilgili sistem mesaji da silinir (Cascade) — demo seed reset ile uyumlu.
+            modelBuilder.Entity<Message>()
+                .HasOne(m => m.RelatedAppointment)
+                .WithMany()
+                .HasForeignKey(m => m.RelatedAppointmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Konusma sorgularini hizlandiran composite index
             modelBuilder.Entity<Message>()
                 .HasIndex(m => new { m.SenderId, m.ReceiverId, m.Timestamp });
@@ -139,13 +147,6 @@ namespace SmartCampus.Infrastructure.Context
                 .HasOne(a => a.Schedule)
                 .WithMany()
                 .HasForeignKey(a => a.ScheduleId)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            // ---- Appointment -> Message (opsiyonel baglanti) ----
-            modelBuilder.Entity<Appointment>()
-                .HasOne(a => a.Message)
-                .WithMany()
-                .HasForeignKey(a => a.MessageId)
                 .OnDelete(DeleteBehavior.SetNull);
 
             // ---- Notification iliskileri ----
