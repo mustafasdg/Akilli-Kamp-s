@@ -65,6 +65,8 @@ namespace SmartCampus.Api.Controllers
                 Status          = (int)a.Status,
                 Description     = a.Description,
                 CreatedAt       = a.CreatedAt,
+                RejectionReason = a.RejectionReason,
+                SuggestedTime   = a.SuggestedTime,
             }).ToList();
 
             return Ok(result);
@@ -98,8 +100,9 @@ namespace SmartCampus.Api.Controllers
 
         /// <summary>
         /// Randevu durumunu günceller (öğretmen onaylar/reddeder).
+        /// Reddederken sebep ve önerilen yeni saat verilebilir; öğrenciye bildirim oluşturulur.
         /// PUT /api/appointments/{id}/status
-        /// Body: { newStatus: 1 (Approved) | 2 (Rejected) }
+        /// Body: { newStatus: 1 (Approved) | 2 (Rejected), reason?, suggestedTime? }
         /// </summary>
         [HttpPut("{id}/status")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusRequest request)
@@ -107,7 +110,9 @@ namespace SmartCampus.Api.Controllers
             var updated = await _mediator.Send(new UpdateAppointmentStatusCommand
             {
                 AppointmentId = id,
-                NewStatus = request.NewStatus
+                NewStatus     = request.NewStatus,
+                Reason        = request.Reason,
+                SuggestedTime = request.SuggestedTime
             });
 
             if (updated is null) return NotFound();
@@ -121,7 +126,10 @@ namespace SmartCampus.Api.Controllers
         }
     }
 
-    public record UpdateStatusRequest(AppointmentStatus NewStatus);
+    public record UpdateStatusRequest(
+        AppointmentStatus NewStatus,
+        string? Reason = null,
+        DateTime? SuggestedTime = null);
 
     public record AppointmentDto
     {
@@ -135,5 +143,7 @@ namespace SmartCampus.Api.Controllers
         public int      Status          { get; init; }
         public string   Description     { get; init; } = string.Empty;
         public DateTime CreatedAt       { get; init; }
+        public string?  RejectionReason { get; init; }
+        public DateTime? SuggestedTime  { get; init; }
     }
 }

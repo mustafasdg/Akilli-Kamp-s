@@ -17,6 +17,7 @@ namespace SmartCampus.Application.Interfaces
         IGenericRepository<Appointment> Appointments { get; }
         IGenericRepository<TeacherSchedule> TeacherSchedules { get; }
         IGenericRepository<Message> Messages { get; }
+        IGenericRepository<Notification> Notifications { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }

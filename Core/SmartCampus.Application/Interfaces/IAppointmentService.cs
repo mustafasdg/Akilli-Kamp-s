@@ -19,6 +19,15 @@ namespace SmartCampus.Application.Interfaces
             DateTime appointmentDate,
             CancellationToken ct = default);
 
+        /// <summary>
+        /// Öğretmenin yalnızca boş (aktif randevu talebi olmayan) slotlarını getirir.
+        /// Doluluk, Appointment tablosundaki Pending/Approved kayıtlardan hesaplanır.
+        /// </summary>
+        Task<IReadOnlyList<TeacherSchedule>> GetAvailableSlotsAsync(
+            int teacherId,
+            DateTime? date = null,
+            CancellationToken ct = default);
+
         /// <summary>Öğrencinin kendi randevularını getirir.</summary>
         Task<IReadOnlyList<Appointment>> GetStudentAppointmentsAsync(
             int studentId,
@@ -29,10 +38,15 @@ namespace SmartCampus.Application.Interfaces
             int teacherId,
             CancellationToken ct = default);
 
-        /// <summary>Randevu durumunu günceller (Approved / Rejected).</summary>
+        /// <summary>
+        /// Randevu durumunu günceller (Approved / Rejected).
+        /// Reddedilirken sebep ve önerilen yeni saat verilebilir; öğrenciye bildirim kaydı oluşturulur.
+        /// </summary>
         Task<Appointment?> UpdateStatusAsync(
             int appointmentId,
             AppointmentStatus newStatus,
+            string? reason = null,
+            DateTime? suggestedTime = null,
             CancellationToken ct = default);
     }
 }

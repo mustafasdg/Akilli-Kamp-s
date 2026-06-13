@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using SmartCampus.Domain.Entities;
 using SmartCampus.Infrastructure.Context;
 
@@ -105,48 +106,105 @@ namespace SmartCampus.Infrastructure.Persistence
 
         private static void SeedTeacherSchedules(ApplicationDbContext context)
         {
-            var weekdays = new[]
+            // Demo sıfırlama: her başlangıçta tamamen sil ve yeniden doldur.
+            context.Database.ExecuteSqlRaw("DELETE FROM Appointments");
+            context.Database.ExecuteSqlRaw("DELETE FROM TeacherSchedules");
+
+            var altintas = context.Users.FirstOrDefault(u => u.Email == "cevriye.altintas@smartcampus.local");
+            var pacaci   = context.Users.FirstOrDefault(u => u.Email == "serdar.pacaci@smartcampus.local");
+
+            // Dr. Cevriye ALTINTAŞ ders programı
+            if (altintas is not null)
             {
-                DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday,
-                DayOfWeek.Thursday, DayOfWeek.Friday,
-            };
-
-            // 9-10, 10-11, …, 16-17 → 8 dilim/gün
-            var slots = Enumerable.Range(9, 8)
-                .Select(h => (Start: new TimeOnly(h, 0), End: new TimeOnly(h + 1, 0)))
-                .ToArray();
-
-            var teacherEmails = new[]
-            {
-                "cevriye.altintas@smartcampus.local",
-                "serdar.pacaci@smartcampus.local",
-            };
-
-            foreach (var email in teacherEmails)
-            {
-                var teacher = context.Users.FirstOrDefault(u => u.Email == email);
-                if (teacher is null) continue;
-
-                foreach (var day in weekdays)
+                // Sabit dersler (Ders tipi — öğrenci randevusu alınamaz)
+                var dersAltintas = new[]
                 {
-                    foreach (var (start, end) in slots)
-                    {
-                        bool exists = context.TeacherSchedules.Any(
-                            s => s.TeacherId == teacher.ID &&
-                                 s.DayOfWeek == day &&
-                                 s.StartTime == start);
-                        if (exists) continue;
+                    // Pazartesi + Çarşamba 09-11 → Veri Madenciliği
+                    (DayOfWeek.Monday,    9, "Veri Madenciliği", "A-202"),
+                    (DayOfWeek.Monday,   10, "Veri Madenciliği", "A-202"),
+                    (DayOfWeek.Wednesday, 9, "Veri Madenciliği", "A-202"),
+                    (DayOfWeek.Wednesday,10, "Veri Madenciliği", "A-202"),
+                    // Salı + Perşembe 13-15 → Makine Öğrenmesi
+                    (DayOfWeek.Tuesday,  13, "Makine Öğrenmesi", "B-105"),
+                    (DayOfWeek.Tuesday,  14, "Makine Öğrenmesi", "B-105"),
+                    (DayOfWeek.Thursday, 13, "Makine Öğrenmesi", "B-105"),
+                    (DayOfWeek.Thursday, 14, "Makine Öğrenmesi", "B-105"),
+                };
 
-                        context.TeacherSchedules.Add(new TeacherSchedule
-                        {
-                            TeacherId   = teacher.ID,
-                            DayOfWeek   = day,
-                            StartTime   = start,
-                            EndTime     = end,
-                            IsAvailable = true,
-                        });
-                    }
-                }
+                foreach (var (day, h, name, loc) in dersAltintas)
+                    context.TeacherSchedules.Add(new TeacherSchedule
+                    {
+                        TeacherId     = altintas.ID,
+                        DayOfWeek     = day,
+                        StartTime     = new TimeOnly(h, 0),
+                        EndTime       = new TimeOnly(h + 1, 0),
+                        IsAvailable   = false,
+                        Type          = ScheduleType.Ders,
+                        CourseName    = name,
+                        ClassLocation = loc,
+                    });
+
+                // Kalan saatler Müsait
+                var weekdays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday };
+                var busyAltintas = dersAltintas.ToLookup(x => (x.Item1, x.Item2));
+                foreach (var day in weekdays)
+                    for (int h = 9; h <= 16; h++)
+                        if (!busyAltintas.Contains((day, h)))
+                            context.TeacherSchedules.Add(new TeacherSchedule
+                            {
+                                TeacherId   = altintas.ID,
+                                DayOfWeek   = day,
+                                StartTime   = new TimeOnly(h, 0),
+                                EndTime     = new TimeOnly(h + 1, 0),
+                                IsAvailable = true,
+                                Type        = ScheduleType.Müsait,
+                            });
+            }
+
+            // Dr. Serdar PAÇACI ders programı
+            if (pacaci is not null)
+            {
+                var dersPacaci = new[]
+                {
+                    // Salı + Perşembe 09-11 → Siber Güvenlik
+                    (DayOfWeek.Tuesday,   9, "Siber Güvenlik", "Lab C-303"),
+                    (DayOfWeek.Tuesday,  10, "Siber Güvenlik", "Lab C-303"),
+                    (DayOfWeek.Thursday,  9, "Siber Güvenlik", "Lab C-303"),
+                    (DayOfWeek.Thursday, 10, "Siber Güvenlik", "Lab C-303"),
+                    // Pazartesi + Çarşamba 14-16 → Yazılım Geliştirme
+                    (DayOfWeek.Monday,   14, "Yazılım Geliştirme", "A-105"),
+                    (DayOfWeek.Monday,   15, "Yazılım Geliştirme", "A-105"),
+                    (DayOfWeek.Wednesday,14, "Yazılım Geliştirme", "A-105"),
+                    (DayOfWeek.Wednesday,15, "Yazılım Geliştirme", "A-105"),
+                };
+
+                foreach (var (day, h, name, loc) in dersPacaci)
+                    context.TeacherSchedules.Add(new TeacherSchedule
+                    {
+                        TeacherId     = pacaci.ID,
+                        DayOfWeek     = day,
+                        StartTime     = new TimeOnly(h, 0),
+                        EndTime       = new TimeOnly(h + 1, 0),
+                        IsAvailable   = false,
+                        Type          = ScheduleType.Ders,
+                        CourseName    = name,
+                        ClassLocation = loc,
+                    });
+
+                var weekdays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday };
+                var busyPacaci = dersPacaci.ToLookup(x => (x.Item1, x.Item2));
+                foreach (var day in weekdays)
+                    for (int h = 9; h <= 16; h++)
+                        if (!busyPacaci.Contains((day, h)))
+                            context.TeacherSchedules.Add(new TeacherSchedule
+                            {
+                                TeacherId   = pacaci.ID,
+                                DayOfWeek   = day,
+                                StartTime   = new TimeOnly(h, 0),
+                                EndTime     = new TimeOnly(h + 1, 0),
+                                IsAvailable = true,
+                                Type        = ScheduleType.Müsait,
+                            });
             }
 
             context.SaveChanges();

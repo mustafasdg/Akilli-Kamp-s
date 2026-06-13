@@ -22,6 +22,9 @@ namespace SmartCampus.Application.Features.Schedules.Commands.CreateSchedule
                 request.DayOfWeek,
                 request.StartTime,
                 request.EndTime,
+                request.Type,
+                request.CourseName,
+                request.ClassLocation,
                 cancellationToken);
     }
 }

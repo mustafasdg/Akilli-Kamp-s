@@ -3,6 +3,7 @@ import {
   Announcement, Menu, Location, News, Event, PagedResult,
   Message, Teacher, TeacherSchedule,
   Appointment, CreateAppointmentRequest, AppointmentStatus,
+  AppNotification, ScheduleRequest,
 } from '../types/models';
 
 export const dataService = {
@@ -29,6 +30,21 @@ export const dataService = {
   getTeacherSchedules: (teacherId: number) =>
     apiClient.get<TeacherSchedule[]>(`/schedules/${teacherId}`),
 
+  // ── Hoca program yönetimi ─────────────────────────────────────────────────
+  createSchedule: (body: ScheduleRequest) =>
+    apiClient.post<TeacherSchedule>('/schedules', body),
+
+  updateSchedule: (id: number, body: ScheduleRequest) =>
+    apiClient.put<TeacherSchedule>(`/schedules/${id}`, body),
+
+  /** Müsait slotu EkDers olarak işaretle (slot silinmez, güncellenir). */
+  markSlotAsEkDers: (id: number, body: { courseName: string; classLocation?: string }) =>
+    apiClient.put<TeacherSchedule>(`/schedules/${id}/ekders`, body),
+
+  /** EkDers slotunu Müsait'e sıfırla (CourseName/ClassLocation temizlenir). */
+  resetSlot: (id: number) =>
+    apiClient.put<TeacherSchedule>(`/schedules/${id}/reset`),
+
   // ── Mesajlaşma ────────────────────────────────────────────────────────────
   getConversation: (otherUserId: number) =>
     apiClient.get<Message[]>(`/messages/conversation/${otherUserId}`),
@@ -46,6 +62,18 @@ export const dataService = {
   createAppointment: (body: CreateAppointmentRequest) =>
     apiClient.post<Appointment>('/appointments', body),
 
-  updateAppointmentStatus: (id: number, newStatus: AppointmentStatus) =>
-    apiClient.put<void>(`/appointments/${id}/status`, { newStatus }),
+  updateAppointmentStatus: (
+    id: number,
+    newStatus: AppointmentStatus,
+    reason?: string,
+    suggestedTime?: string,
+  ) =>
+    apiClient.put<void>(`/appointments/${id}/status`, { newStatus, reason, suggestedTime }),
+
+  // ── Bildirimler ───────────────────────────────────────────────────────────
+  getMyNotifications: () =>
+    apiClient.get<AppNotification[]>('/notifications/mine'),
+
+  markNotificationRead: (id: number) =>
+    apiClient.put<void>(`/notifications/${id}/read`),
 };

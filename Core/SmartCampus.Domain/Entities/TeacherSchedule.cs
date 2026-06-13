@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SmartCampus.Domain.Entities
 {
     public class TeacherSchedule
@@ -14,5 +16,13 @@ namespace SmartCampus.Domain.Entities
         public TimeOnly EndTime { get; set; }
 
         public bool IsAvailable { get; set; } = true;
+
+        // Katmanlı ders tipi: Müsait | Ders | EkDers
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public ScheduleType Type { get; set; } = ScheduleType.Müsait;
+
+        // Ders/EkDers için opsiyonel bilgiler
+        public string? CourseName    { get; set; }
+        public string? ClassLocation { get; set; }
     }
 }

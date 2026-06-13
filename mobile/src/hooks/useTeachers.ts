@@ -20,6 +20,7 @@ export function useTeachers(): UseTeachersResult {
       const list = teachersRes.data;
 
       const todayDow = new Date().getDay(); // 0 Pazar … 6 Cumartesi
+      const isWeekend = todayDow === 0 || todayDow === 6;
 
       // Tüm hocaların programlarını paralel olarak çek
       const scheduleResults = await Promise.allSettled(
@@ -29,9 +30,19 @@ export function useTeachers(): UseTeachersResult {
       const enriched: Teacher[] = list.map((teacher, i) => {
         const result = scheduleResults[i];
         const schedules = result.status === 'fulfilled' ? result.value.data : [];
-        const isAvailableToday = schedules.some(
-          s => s.dayOfWeek === todayDow && s.isAvailable
-        );
+
+        let isAvailableToday: boolean | undefined;
+        if (isWeekend) {
+          // Hafta sonu — haftalık program yoktur, badge gösterme
+          isAvailableToday = undefined;
+        } else {
+          const todaySlots = schedules.filter(s => s.dayOfWeek === todayDow);
+          // Bugün için hiç kayıt yoksa undefined (Program Yok), varsa en az biri müsaitse true
+          isAvailableToday = todaySlots.length > 0
+            ? todaySlots.some(s => s.isAvailable)
+            : undefined;
+        }
+
         return { ...teacher, isAvailableToday };
       });
 

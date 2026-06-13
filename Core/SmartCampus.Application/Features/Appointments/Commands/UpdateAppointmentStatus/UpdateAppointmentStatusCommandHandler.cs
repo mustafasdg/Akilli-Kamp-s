@@ -20,6 +20,8 @@ namespace SmartCampus.Application.Features.Appointments.Commands.UpdateAppointme
             => _appointmentService.UpdateStatusAsync(
                 request.AppointmentId,
                 request.NewStatus,
+                request.Reason,
+                request.SuggestedTime,
                 cancellationToken);
     }
 }

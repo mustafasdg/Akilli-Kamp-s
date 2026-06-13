@@ -98,6 +98,16 @@ export default function ProfileScreen() {
             label="Profili Düzenle"
             onPress={() => navigation.navigate('EditProfile')}
           />
+          {user?.role === 'teacher' && (
+            <>
+              <Divider />
+              <ActionRow
+                icon="calendar-outline"
+                label="Ders Programını Güncelle"
+                onPress={() => navigation.navigate('TeacherDashboard')}
+              />
+            </>
+          )}
         </View>
 
         {/* ── Uygulama ───────────────────────────────────────── */}
@@ -119,7 +129,11 @@ export default function ProfileScreen() {
             />
           </View>
           <Divider />
-          <ActionRow icon="notifications-outline" label="Bildirimler" />
+          <ActionRow
+            icon="notifications-outline"
+            label="Bildirimler"
+            onPress={() => navigation.navigate('Notifications')}
+          />
           <Divider />
           <ActionRow icon="information-circle-outline" label="Hakkında" />
           <Divider />

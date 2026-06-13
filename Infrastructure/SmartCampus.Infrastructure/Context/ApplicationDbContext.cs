@@ -19,6 +19,7 @@ namespace SmartCampus.Infrastructure.Context
         public DbSet<Appointment> Appointments { get; set; }
         public DbSet<TeacherSchedule> TeacherSchedules { get; set; }
         public DbSet<Message> Messages { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -103,6 +104,11 @@ namespace SmartCampus.Infrastructure.Context
                 .Property(s => s.DayOfWeek)
                 .HasConversion<int>();
 
+            // ScheduleType enum -> int olarak sakla
+            modelBuilder.Entity<TeacherSchedule>()
+                .Property(s => s.Type)
+                .HasConversion<int>();
+
             // Ayni ogretmen, ayni gun, ayni saat blogu tekrarlanamasin
             modelBuilder.Entity<TeacherSchedule>()
                 .HasIndex(s => new { s.TeacherId, s.DayOfWeek, s.StartTime })
@@ -141,6 +147,26 @@ namespace SmartCampus.Infrastructure.Context
                 .WithMany()
                 .HasForeignKey(a => a.MessageId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // ---- Notification iliskileri ----
+
+            // Notification -> User (alici)
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.User)
+                .WithMany()
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Notification -> Appointment (opsiyonel kaynak)
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.Appointment)
+                .WithMany()
+                .HasForeignKey(n => n.AppointmentId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Kullanicinin okunmamis bildirim sorgularini hizlandir
+            modelBuilder.Entity<Notification>()
+                .HasIndex(n => new { n.UserId, n.IsRead });
         }
     }
 }

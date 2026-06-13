@@ -14,6 +14,8 @@ import AppTabs from './AppTabs';
 import ChatScreen from '../screens/ChatScreen';
 import TeacherProfileScreen from '../screens/TeacherProfileScreen';
 import StudentRequestsScreen from '../screens/StudentRequestsScreen';
+import TeacherDashboardScreen from '../screens/TeacherDashboardScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import { Announcement, Teacher } from '../types/models';
 
 export type AuthStackParamList = {
@@ -31,6 +33,8 @@ export type AppRootParamList = {
   Chat: { teacher: Teacher };
   TeacherProfile: { teacher: Teacher };
   StudentRequests: undefined;
+  TeacherDashboard: undefined;
+  Notifications: undefined;
 };
 
 type RootStackParamList = {
@@ -97,6 +101,16 @@ function AppNavigator() {
       <AppRootStack.Screen
         name="StudentRequests"
         component={StudentRequestsScreen}
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <AppRootStack.Screen
+        name="TeacherDashboard"
+        component={TeacherDashboardScreen}
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <AppRootStack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
         options={{ headerShown: false, animation: 'slide_from_right' }}
       />
     </AppRootStack.Navigator>

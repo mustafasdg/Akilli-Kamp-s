@@ -124,6 +124,10 @@ export interface TeacherSchedule {
   startTime: string;   // "HH:mm:ss"
   endTime: string;
   isAvailable: boolean;
+  /** Katmanlı tip: Müsait | Ders | EkDers */
+  type: 'Müsait' | 'Ders' | 'EkDers';
+  courseName?: string | null;
+  classLocation?: string | null;
 }
 
 // ─── Appointments ─────────────────────────────────────────────────────────────
@@ -146,6 +150,9 @@ export interface Appointment {
   status: AppointmentStatus;
   description: string;
   createdAt: string;
+  /** Red akışı: hocanın belirttiği sebep ve önerdiği yeni saat */
+  rejectionReason?: string | null;
+  suggestedTime?: string | null;
 }
 
 export interface CreateAppointmentRequest {
@@ -153,4 +160,27 @@ export interface CreateAppointmentRequest {
   scheduleId?: number;
   appointmentDate: string;   // ISO 8601
   description: string;
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+// GET /api/notifications/mine
+export interface AppNotification {
+  id: number;
+  title: string;
+  body: string;
+  appointmentId?: number | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+// POST/PUT /api/schedules
+export interface ScheduleRequest {
+  dayOfWeek: number;
+  startTime: string;   // "HH:mm:ss"
+  endTime: string;
+  isAvailable?: boolean;
+  type?: 'Müsait' | 'EkDers';
+  courseName?: string;
+  classLocation?: string;
 }

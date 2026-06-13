@@ -25,5 +25,9 @@ namespace SmartCampus.Domain.Entities
         // Randevu bir mesaj üzerinden tetiklendiyse bağlantı (opsiyonel)
         public int? MessageId { get; set; }
         public Message? Message { get; set; }
+
+        // Red akışı: hocanın belirttiği sebep ve önerdiği yeni saat (opsiyonel)
+        public string? RejectionReason { get; set; }
+        public DateTime? SuggestedTime { get; set; }
     }
 }

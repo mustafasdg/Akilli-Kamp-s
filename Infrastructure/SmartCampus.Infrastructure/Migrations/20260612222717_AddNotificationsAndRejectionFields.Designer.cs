@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartCampus.Infrastructure.Context;
 
@@ -11,9 +12,11 @@ using SmartCampus.Infrastructure.Context;
 namespace SmartCampus.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260612222717_AddNotificationsAndRejectionFields")]
+    partial class AddNotificationsAndRejectionFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -323,12 +326,6 @@ namespace SmartCampus.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
 
-                    b.Property<string>("ClassLocation")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CourseName")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int>("DayOfWeek")
                         .HasColumnType("int");
 
@@ -342,9 +339,6 @@ namespace SmartCampus.Infrastructure.Migrations
                         .HasColumnType("time");
 
                     b.Property<int>("TeacherId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Type")
                         .HasColumnType("int");
 
                     b.HasKey("ID");

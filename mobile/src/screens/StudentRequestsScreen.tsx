@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl, Alert,
+  Modal, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,11 +23,54 @@ const STATUS_COLOR = (c: any): Record<AppointmentStatus, string> => ({
   [AppointmentStatus.Rejected]: c.error    ?? '#EF4444',
 });
 
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * ISO string'ini timezone dönüşümü YAPMADAN bileşenlerine ayırır.
+ * "2026-06-15T09:00:00" → { y, m, d, hh, mm } — saat olduğu gibi korunur.
+ */
+function parseIsoLocal(iso: string): { y: number; m: number; d: number; hh: number; mm: number } {
+  const [datePart, timePart = '00:00'] = iso.split('T');
+  const [y, m, d] = datePart.split('-').map(Number);
+  const [hh, mm] = timePart.split(':').map(Number);
+  return { y, m, d, hh, mm };
+}
+
+/** Backend'in gönderdiği saati olduğu gibi gösterir — new Date(iso) ile UTC kayması yok */
 function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const day  = d.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
-  const time = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-  return `${day}, ${time}`;
+  const { y, m, d, hh, mm } = parseIsoLocal(iso);
+  // Date sadece gün/ay adı için yerel bileşenlerle kurulur; saat string'den gelir
+  const dayName = new Date(y, m - 1, d).toLocaleDateString('tr-TR', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  });
+  return `${dayName}, ${pad(hh)}:${pad(mm)}`;
+}
+
+/** "HH..." saatini string'den okur */
+function appointmentHour(iso: string): number {
+  return parseIsoLocal(iso).hh;
+}
+
+/** Yerel duvar saatini Z'siz ISO formatına çevirir (backend Kind=Unspecified alır) */
+function toLocalIso(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+}
+
+/** Randevu tarihinden sonraki 3 hafta içi günü aynı saatle önerir */
+function suggestionOptions(iso: string): { label: string; value: string }[] {
+  const { y, m, d: day, hh, mm } = parseIsoLocal(iso);
+  const cursor = new Date(y, m - 1, day, hh, mm); // yerel bileşenlerden kuruldu, kayma yok
+  const options: { label: string; value: string }[] = [];
+  while (options.length < 3) {
+    cursor.setDate(cursor.getDate() + 1);
+    if (cursor.getDay() === 0 || cursor.getDay() === 6) continue; // hafta sonunu atla
+    options.push({
+      label: cursor.toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short' }) +
+             ` ${pad(cursor.getHours())}:${pad(cursor.getMinutes())}`,
+      value: toLocalIso(cursor),
+    });
+  }
+  return options;
 }
 
 export default function StudentRequestsScreen() {
@@ -37,14 +81,26 @@ export default function StudentRequestsScreen() {
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState<string | null>(null);
 
+  // Reddetme modalı
+  const [rejectTarget, setRejectTarget]   = useState<Appointment | null>(null);
+  const [rejectReason, setRejectReason]   = useState('');
+  const [suggestedTime, setSuggestedTime] = useState<string | null>(null);
+  const [submitting, setSubmitting]       = useState(false);
+
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await dataService.getMyAppointments();
-      const sorted = [...res.data].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
+      // Mesai dışı (09:00 - 17:00 aralığı dışı) hiçbir kayıt ekrana gelmez
+      const sorted = res.data
+        .filter(a => {
+          const h = appointmentHour(a.appointmentDate);
+          return h >= 9 && h < 17;
+        })
+        .sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
       setAppointments(sorted);
     } catch {
       setError('Randevular yüklenemedi.');
@@ -55,19 +111,17 @@ export default function StudentRequestsScreen() {
 
   useEffect(() => { fetchAppointments(); }, [fetchAppointments]);
 
-  const handleUpdateStatus = async (id: number, status: AppointmentStatus) => {
-    const label = status === AppointmentStatus.Approved ? 'onaylanacak' : 'reddedilecek';
+  const handleApprove = (id: number) => {
     Alert.alert(
-      'Randevu Güncelle',
-      `Bu randevu ${label}. Emin misiniz?`,
+      'Randevuyu Onayla',
+      'Bu randevu onaylanacak. Emin misiniz?',
       [
         { text: 'Vazgeç', style: 'cancel' },
         {
-          text: status === AppointmentStatus.Approved ? 'Onayla' : 'Reddet',
-          style: status === AppointmentStatus.Rejected ? 'destructive' : 'default',
+          text: 'Onayla',
           onPress: async () => {
             try {
-              await dataService.updateAppointmentStatus(id, status);
+              await dataService.updateAppointmentStatus(id, AppointmentStatus.Approved);
               await fetchAppointments();
             } catch {
               Alert.alert('Hata', 'Durum güncellenemedi.');
@@ -76,6 +130,37 @@ export default function StudentRequestsScreen() {
         },
       ],
     );
+  };
+
+  // Reddet → sebep + önerilen saat modalı aç
+  const openRejectModal = (appt: Appointment) => {
+    setRejectTarget(appt);
+    setRejectReason('');
+    setSuggestedTime(null);
+  };
+
+  const handleRejectSubmit = async () => {
+    if (!rejectTarget) return;
+    if (!rejectReason.trim()) {
+      Alert.alert('Eksik Bilgi', 'Lütfen red sebebini belirtin.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await dataService.updateAppointmentStatus(
+        rejectTarget.id,
+        AppointmentStatus.Rejected,
+        rejectReason.trim(),
+        suggestedTime ?? undefined,
+      );
+      setRejectTarget(null);
+      await fetchAppointments();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Durum güncellenemedi.';
+      Alert.alert('Hata', msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const pending  = appointments.filter(a => a.status === AppointmentStatus.Pending);
@@ -128,13 +213,87 @@ export default function StudentRequestsScreen() {
         renderItem={({ item }) => (
           <AppointmentCard
             item={item}
-            onApprove={() => handleUpdateStatus(item.id, AppointmentStatus.Approved)}
-            onReject={()  => handleUpdateStatus(item.id, AppointmentStatus.Rejected)}
+            onApprove={() => handleApprove(item.id)}
+            onReject={()  => openRejectModal(item)}
             s={s}
             c={c}
           />
         )}
       />
+
+      {/* Reddetme modalı: sebep + önerilen yeni saat */}
+      <Modal visible={rejectTarget !== null} transparent animationType="slide">
+        <KeyboardAvoidingView
+          style={s.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={s.modalCard}>
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Randevuyu Reddet</Text>
+              <TouchableOpacity onPress={() => setRejectTarget(null)}>
+                <Ionicons name="close" size={22} color={c.text} />
+              </TouchableOpacity>
+            </View>
+
+            {rejectTarget && (
+              <View style={s.modalInfo}>
+                <Ionicons name="person-outline" size={15} color={c.primary} />
+                <Text style={s.modalInfoText}>
+                  {rejectTarget.studentName} • {formatDate(rejectTarget.appointmentDate)}
+                </Text>
+              </View>
+            )}
+
+            <Text style={s.modalLabel}>Red Sebebi *</Text>
+            <TextInput
+              style={s.modalInput}
+              placeholder="Örn: Bu saatte bölüm kurulu toplantım var…"
+              placeholderTextColor={c.textMuted}
+              value={rejectReason}
+              onChangeText={setRejectReason}
+              multiline
+              numberOfLines={3}
+              maxLength={500}
+            />
+
+            <Text style={s.modalLabel}>Yeni Saat Öner (isteğe bağlı)</Text>
+            <View style={s.suggestRow}>
+              {rejectTarget && suggestionOptions(rejectTarget.appointmentDate).map(opt => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[s.suggestChip, suggestedTime === opt.value && s.suggestChipActive]}
+                  onPress={() =>
+                    setSuggestedTime(prev => (prev === opt.value ? null : opt.value))
+                  }
+                >
+                  <Text style={[
+                    s.suggestChipText,
+                    suggestedTime === opt.value && s.suggestChipTextActive,
+                  ]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={[s.rejectSubmitBtn, submitting && { opacity: 0.6 }]}
+              onPress={handleRejectSubmit}
+              disabled={submitting}
+            >
+              {submitting
+                ? <ActivityIndicator color="#fff" />
+                : (
+                  <>
+                    <Ionicons name="send-outline" size={16} color="#fff" />
+                    <Text style={s.rejectSubmitText}>Reddet ve Gönder</Text>
+                  </>
+                )
+              }
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -183,6 +342,15 @@ function AppointmentCard({
 
       {item.description ? (
         <Text style={s.description} numberOfLines={2}>{item.description}</Text>
+      ) : null}
+
+      {item.status === AppointmentStatus.Rejected && item.rejectionReason ? (
+        <View style={s.rejectInfo}>
+          <Text style={s.rejectInfoText}>
+            Sebep: {item.rejectionReason}
+            {item.suggestedTime ? `\nÖnerilen saat: ${formatDate(item.suggestedTime)}` : ''}
+          </Text>
+        </View>
       ) : null}
 
       {isPending && (
@@ -251,4 +419,43 @@ const makeStyles = (c: ReturnType<typeof useColors>) =>
     retryBtn: { backgroundColor: c.primary, borderRadius: 10, paddingHorizontal: 24, paddingVertical: 10 },
     retryText: { color: '#fff', fontWeight: '700' },
     emptyText: { fontSize: 15, color: c.textMuted, textAlign: 'center' },
+
+    rejectInfo: {
+      backgroundColor: c.errorLight, borderRadius: 8,
+      paddingHorizontal: 10, paddingVertical: 8,
+    },
+    rejectInfoText: { fontSize: 12, color: c.error, lineHeight: 18 },
+
+    // Reddetme modalı
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+    modalCard: {
+      backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+      padding: 24, gap: 12,
+    },
+    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: c.text },
+    modalInfo: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: c.background, borderRadius: 10, padding: 10,
+    },
+    modalInfoText: { flex: 1, fontSize: 13, fontWeight: '600', color: c.text },
+    modalLabel: { fontSize: 13, fontWeight: '600', color: c.textSecondary },
+    modalInput: {
+      backgroundColor: c.background, borderRadius: 12, padding: 12,
+      fontSize: 14, color: c.text, minHeight: 76, textAlignVertical: 'top',
+      borderWidth: 1, borderColor: c.border,
+    },
+    suggestRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    suggestChip: {
+      borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+      backgroundColor: c.background, borderWidth: 1, borderColor: c.border,
+    },
+    suggestChipActive: { backgroundColor: c.primaryLight, borderColor: c.primary },
+    suggestChipText: { fontSize: 12, fontWeight: '600', color: c.textSecondary },
+    suggestChipTextActive: { color: c.primary },
+    rejectSubmitBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      backgroundColor: c.error, borderRadius: 14, paddingVertical: 14, marginTop: 4,
+    },
+    rejectSubmitText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   });

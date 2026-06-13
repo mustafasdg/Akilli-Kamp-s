@@ -2,10 +2,13 @@ using System.ComponentModel.DataAnnotations;
 using MediatR;
 using SmartCampus.Domain.Entities;
 
-namespace SmartCampus.Application.Features.Schedules.Commands.CreateSchedule
+namespace SmartCampus.Application.Features.Schedules.Commands.UpdateSchedule
 {
-    public class CreateScheduleCommand : IRequest<TeacherSchedule>
+    public class UpdateScheduleCommand : IRequest<TeacherSchedule?>
     {
+        // Controller route'tan doldurur
+        public int ScheduleId { get; set; }
+
         // Controller JWT'den doldurur
         public int TeacherId { get; set; }
 
@@ -18,8 +21,6 @@ namespace SmartCampus.Application.Features.Schedules.Commands.CreateSchedule
         [Required]
         public TimeOnly EndTime { get; set; }
 
-        public ScheduleType Type { get; set; } = ScheduleType.Müsait;
-        public string? CourseName    { get; set; }
-        public string? ClassLocation { get; set; }
+        public bool IsAvailable { get; set; } = true;
     }
 }

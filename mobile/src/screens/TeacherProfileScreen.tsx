@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, Modal, TextInput, Alert,
@@ -11,7 +11,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useColors } from '../context/ThemeContext';
 import { AppRootParamList } from '../navigation/RootNavigator';
 import { dataService } from '../services/dataService';
-import { TeacherSchedule, AppointmentStatus } from '../types/models';
+import { TeacherSchedule, AppointmentStatus, Appointment } from '../types/models';
 import UserAvatar from '../components/UserAvatar';
 
 type NavProp   = NativeStackNavigationProp<AppRootParamList>;
@@ -20,6 +20,22 @@ type RoutePropT = RouteProp<AppRootParamList, 'TeacherProfile'>;
 const DAY_LABELS = ['Pz', 'Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct'];
 const DAY_FULL   = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 const WEEKDAYS   = [1, 2, 3, 4, 5]; // Pazartesi–Cuma
+
+// Mesai penceresi — bu aralık dışındaki slotlar hiç render edilmez
+const WORK_START_HOUR = 9;
+const WORK_END_HOUR   = 17;
+
+const slotHour = (timeStr: string) => parseInt(timeStr.split(':')[0], 10);
+const isWorkHour = (timeStr: string) => {
+  const h = slotHour(timeStr);
+  return h >= WORK_START_HOUR && h < WORK_END_HOUR;
+};
+
+/** Yerel duvar saatini timezone dönüşümü olmadan ISO formatına çevirir (Z eki yok) */
+function toLocalIso(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`;
+}
 
 function nextOccurrence(dayOfWeek: number, startHour: number): Date {
   const now  = new Date();
@@ -41,38 +57,74 @@ export default function TeacherProfileScreen() {
   const route      = useRoute<RoutePropT>();
   const { teacher } = route.params;
 
-  const [schedules, setSchedules]         = useState<TeacherSchedule[]>([]);
-  const [loadingSlots, setLoadingSlots]   = useState(true);
-  const [selectedDay, setSelectedDay]     = useState<number>(1);
+  const [schedules, setSchedules]           = useState<TeacherSchedule[]>([]);
+  const [myAppointments, setMyAppointments] = useState<Appointment[]>([]);
+  const [loadingSlots, setLoadingSlots]     = useState(true);
+  const [selectedDay, setSelectedDay]       = useState<number>(1);
+  const initialDaySet                       = useRef(false);
 
   const [modalVisible, setModalVisible]   = useState(false);
   const [selectedSlot, setSelectedSlot]   = useState<TeacherSchedule | null>(null);
   const [description, setDescription]     = useState('');
   const [submitting, setSubmitting]       = useState(false);
 
-  const fetchSchedules = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     setLoadingSlots(true);
     try {
-      const res = await dataService.getTeacherSchedules(teacher.id);
-      setSchedules(res.data);
+      const [schedRes, apptRes] = await Promise.all([
+        dataService.getTeacherSchedules(teacher.id),
+        dataService.getMyAppointments(),
+      ]);
+      setSchedules(schedRes.data);
+      // Sadece bu hocaya ait randevuları tut
+      setMyAppointments(apptRes.data.filter((a: Appointment) => a.teacherId === teacher.id));
     } catch {
       setSchedules([]);
+      setMyAppointments([]);
     } finally {
       setLoadingSlots(false);
     }
   }, [teacher.id]);
 
-  useEffect(() => { fetchSchedules(); }, [fetchSchedules]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // İlk yüklemede Müsait slotu olan ilk günü seç
+  useEffect(() => {
+    if (initialDaySet.current || schedules.length === 0) return;
+    const firstAvailable = WEEKDAYS.find(d =>
+      schedules.some(s => s.dayOfWeek === d && s.type === 'Müsait' && s.isAvailable)
+    );
+    if (firstAvailable !== undefined) {
+      setSelectedDay(firstAvailable);
+    }
+    initialDaySet.current = true;
+  }, [schedules]);
 
   const daySlots = useMemo(
     () => schedules
-      .filter(s => s.dayOfWeek === selectedDay)
+      .filter(s => s.dayOfWeek === selectedDay && isWorkHour(s.startTime))
       .sort((a, b) => a.startTime.localeCompare(b.startTime)),
     [schedules, selectedDay],
   );
 
+  // Slot görüntü durumunu hesaplar
+  const getSlotState = useCallback(
+    (slot: TeacherSchedule): 'available' | 'pending' | 'taken' | 'inClass' => {
+      // Ders veya EkDers → hocanın dersi var
+      if (slot.type === 'Ders' || slot.type === 'EkDers') return 'inClass';
+      // Müsait slot: kendi randevumu kontrol et
+      const myAppt = myAppointments.find(a => a.scheduleId === slot.id);
+      if (myAppt?.status === AppointmentStatus.Pending)  return 'pending';
+      if (myAppt?.status === AppointmentStatus.Approved) return 'taken';
+      // Başka biri aldıysa isAvailable = false gelir
+      if (!slot.isAvailable) return 'taken';
+      return 'available';
+    },
+    [myAppointments],
+  );
+
   const handleSlotPress = (slot: TeacherSchedule) => {
-    if (!slot.isAvailable) return;
+    if (getSlotState(slot) !== 'available') return;
     setSelectedSlot(slot);
     setDescription('');
     setModalVisible(true);
@@ -82,18 +134,22 @@ export default function TeacherProfileScreen() {
     if (!selectedSlot) return;
     setSubmitting(true);
     try {
-      const date = nextOccurrence(selectedSlot.dayOfWeek, parseInt(selectedSlot.startTime.split(':')[0], 10));
+      const date = nextOccurrence(selectedSlot.dayOfWeek, slotHour(selectedSlot.startTime));
       await dataService.createAppointment({
         teacherId:       teacher.id,
         scheduleId:      selectedSlot.id,
-        appointmentDate: date.toISOString(),
+        // Z'siz yerel format: backend Kind=Unspecified alır, UTC kayması oluşmaz
+        appointmentDate: toLocalIso(date),
         description:     description.trim(),
       });
       setModalVisible(false);
       Alert.alert('Randevu İsteği Gönderildi', `${teacher.name} adlı hocaya randevu isteğiniz iletildi.`);
-      fetchSchedules();
+      fetchAll(); // Hem schedules hem appointments yenilenir
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Randevu oluşturulamadı.';
+      const msg =
+        err?.response?.data?.message ??
+        err?.message ??
+        'Randevu oluşturulamadı. Lütfen tekrar deneyin.';
       Alert.alert('Hata', msg);
     } finally {
       setSubmitting(false);
@@ -103,7 +159,7 @@ export default function TeacherProfileScreen() {
   const slotLabel = (slot: TeacherSchedule) => {
     const sh = slot.startTime.substring(0, 5);
     const eh = slot.endTime.substring(0, 5);
-    return `${sh} – ${eh}`;
+    return `${sh} - ${eh}`;
   };
 
   return (
@@ -177,28 +233,75 @@ export default function TeacherProfileScreen() {
             </View>
           ) : (
             <View style={s.slotGrid}>
-              {daySlots.map(slot => (
-                <TouchableOpacity
-                  key={slot.id}
-                  style={[
-                    s.slotBtn,
-                    slot.isAvailable ? s.slotAvailable : s.slotTaken,
-                  ]}
-                  onPress={() => handleSlotPress(slot)}
-                  disabled={!slot.isAvailable}
-                  activeOpacity={slot.isAvailable ? 0.75 : 1}
-                >
-                  <Text style={[
-                    s.slotText,
-                    { color: slot.isAvailable ? c.primary : c.textMuted },
-                  ]}>
-                    {slotLabel(slot)}
-                  </Text>
-                  {!slot.isAvailable && (
-                    <Text style={s.slotTakenLabel}>Dolu</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
+              {daySlots.map(slot => {
+                const state = getSlotState(slot);
+                const isClickable = state === 'available';
+
+                const iconName =
+                  state === 'available'  ? 'time-outline'        :
+                  state === 'pending'    ? 'hourglass-outline'   :
+                  state === 'inClass'    ? 'book-outline'        :
+                                           'close-circle-outline';
+
+                const iconColor =
+                  state === 'available'  ? c.success  :
+                  state === 'pending'    ? c.warning   :
+                  state === 'inClass'    ? c.primary   :
+                                           c.textMuted;
+
+                const badgeText =
+                  state === 'available'  ? 'Müsait'          :
+                  state === 'pending'    ? 'Bekliyor'         :
+                  state === 'inClass'    ? 'Derste'           :
+                                           'Dolu';
+
+                return (
+                  <TouchableOpacity
+                    key={slot.id}
+                    style={[
+                      s.slotBtn,
+                      state === 'available' ? s.slotAvailable  :
+                      state === 'pending'   ? s.slotPending    :
+                      state === 'inClass'   ? s.slotInClass    :
+                                              s.slotTaken,
+                    ]}
+                    onPress={() => handleSlotPress(slot)}
+                    disabled={!isClickable}
+                    activeOpacity={isClickable ? 0.7 : 1}
+                  >
+                    <Ionicons
+                      name={iconName}
+                      size={16}
+                      color={iconColor}
+                      style={{ marginBottom: 4 }}
+                    />
+                    <Text style={[
+                      s.slotText,
+                      state === 'available' ? s.slotAvailableText :
+                      state === 'pending'   ? s.slotPendingText   :
+                      state === 'inClass'   ? s.slotInClassText   :
+                                              s.slotTakenText,
+                    ]}>
+                      {slotLabel(slot)}
+                    </Text>
+                    <Text style={[
+                      s.slotBadge,
+                      state === 'available' ? s.slotBadgeAvailable :
+                      state === 'pending'   ? s.slotBadgePending   :
+                      state === 'inClass'   ? s.slotBadgeInClass   :
+                                              s.slotBadgeTaken,
+                    ]}>
+                      {badgeText}
+                    </Text>
+                    {/* Ders/EkDers → ders adını küçük göster */}
+                    {state === 'inClass' && slot.courseName ? (
+                      <Text style={s.slotCourseHint} numberOfLines={1}>
+                        {slot.courseName}
+                      </Text>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
         </View>
@@ -297,13 +400,39 @@ const makeStyles = (c: ReturnType<typeof useColors>) =>
 
     slotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     slotBtn: {
-      width: '47%', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 8,
+      width: '47%', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 8,
       alignItems: 'center', borderWidth: 1.5,
     },
-    slotAvailable: { backgroundColor: c.primaryLight ?? '#EEF2FF', borderColor: c.primary },
-    slotTaken: { backgroundColor: c.surface, borderColor: c.border },
-    slotText: { fontSize: 14, fontWeight: '700' },
-    slotTakenLabel: { fontSize: 10, color: c.textMuted, marginTop: 2 },
+    slotAvailable: {
+      backgroundColor: c.successLight,
+      borderColor: c.success,
+    },
+    slotPending: {
+      backgroundColor: c.warningLight,
+      borderColor: c.warning,
+      opacity: 0.9,
+    },
+    slotTaken: {
+      backgroundColor: c.surface,
+      borderColor: c.border,
+      opacity: 0.55,
+    },
+    slotInClass: {
+      backgroundColor: c.primaryLight,
+      borderColor: c.primary,
+      opacity: 0.85,
+    },
+    slotText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.2 },
+    slotAvailableText: { color: '#065F46' },
+    slotPendingText:   { color: '#92400E' },
+    slotTakenText:     { color: c.textMuted },
+    slotInClassText:   { color: c.primary },
+    slotBadge: { fontSize: 10, fontWeight: '600', marginTop: 4, letterSpacing: 0.3 },
+    slotBadgeAvailable: { color: c.success },
+    slotBadgePending:   { color: c.warning },
+    slotBadgeTaken:     { color: c.textMuted },
+    slotBadgeInClass:   { color: c.primary },
+    slotCourseHint: { fontSize: 9, color: c.primary, marginTop: 2, textAlign: 'center', opacity: 0.8 },
 
     emptySlots: { alignItems: 'center', paddingVertical: 32, gap: 10 },
     emptySlotsText: { fontSize: 14, color: c.textMuted },
