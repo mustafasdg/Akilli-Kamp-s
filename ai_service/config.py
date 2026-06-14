@@ -11,9 +11,8 @@ from dotenv import load_dotenv
 # .env dosyası içe aktarımda bir kez yüklenir.
 load_dotenv()
 
-# --- OpenAI ---
-OPENAI_API_KEY: str | None = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+# --- Groq ---
+GROQ_API_KEY: str | None = os.getenv("GROQ_API_KEY")
 
 # --- .NET backend (AiToolsController) ---
 # Sondaki '/' temizlenir ki URL birleştirmede çift slash oluşmasın.

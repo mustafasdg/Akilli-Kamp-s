@@ -7,7 +7,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from pydantic import BaseModel
 
 # config içe aktarımı .env'i yükler -> diğer modüllerden önce ortam değişkenleri hazır olur.
-from config import OPENAI_API_KEY
+from config import GROQ_API_KEY
 from agent import build_agent
 
 logger = logging.getLogger("uvicorn.error")
@@ -24,9 +24,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-if not OPENAI_API_KEY:
+if not GROQ_API_KEY:
     logger.warning(
-        "OPENAI_API_KEY tanımlı değil. /chat çağrıları başarısız olur; "
+        "GROQ_API_KEY tanımlı değil. /chat çağrıları başarısız olur; "
         "anahtarınızı .env dosyasına ekleyin (bkz. .env.example)."
     )
 
@@ -54,6 +54,17 @@ class ChatResponse(BaseModel):
     debug_info: DebugInfo
 
 
+def _parse_student_id(session_id: str) -> int | None:
+    """session_id 'user-{id}-{timestamp}' biçimindeyse öğrenci {id}'sini döndürür."""
+    parts = session_id.split("-")
+    if len(parts) >= 2 and parts[0] == "user":
+        try:
+            return int(parts[1])
+        except ValueError:
+            return None
+    return None
+
+
 @app.get("/health")
 def health() -> dict:
     """Basit sağlık kontrolü."""
@@ -70,17 +81,24 @@ def chat(request: ChatRequest) -> ChatResponse:
     # thread_id = session_id -> checkpointer her oturumu ayrı bir geçmişte tutar.
     config = {"configurable": {"thread_id": request.session_id}}
 
+    # session_id (user-{id}-{ts}) -> öğrenci kimliği; create_appointment aracı bunu
+    # InjectedState ile state'ten okur (LLM bu değeri görmez/üretmez).
+    student_id = _parse_student_id(request.session_id)
+
     # Bu isteğe ait YENİ mesajları ayırt edebilmek için önceki mesaj sayısını al.
     prev_state = agent.get_state(config)
     prev_count = len((prev_state.values or {}).get("messages", []))
 
     try:
         result = agent.invoke(
-            {"messages": [HumanMessage(content=request.message)]},
+            {
+                "messages": [HumanMessage(content=request.message)],
+                "student_id": student_id,
+            },
             config=config,
         )
     except Exception as exc:
-        # OpenAI / ağ / araç hatalarını 500 stacktrace yerine temiz JSON'a çevir.
+        # LLM / ağ / araç hatalarını 500 stacktrace yerine temiz JSON'a çevir.
         logger.exception("Ajan çalıştırılırken hata oluştu")
         raise HTTPException(status_code=502, detail=f"Ajan hatası: {exc}") from exc
 
