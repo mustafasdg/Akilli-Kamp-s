@@ -10,12 +10,14 @@ import ProfileScreen from '../screens/ProfileScreen';
 import AdminScreen from '../screens/AdminScreen';
 import AcademicsScreen from '../screens/AcademicsScreen';
 import TeacherMessagesScreen from '../screens/TeacherMessagesScreen';
+import CommunitiesScreen from '../screens/CommunitiesScreen';
 
 export type AppTabParamList = {
   Home: undefined;
   Menu: undefined;
   Academics: undefined;
   Map: undefined;
+  Communities: undefined;
   Messages: undefined;
   Profile: undefined;
   Admin: undefined;
@@ -35,6 +37,7 @@ const TAB_CONFIG: Record<
   Menu:      { label: 'Yemekhane',       icon: 'restaurant',     iconOutline: 'restaurant-outline' },
   Academics: { label: 'Akademisyenler',  icon: 'school',         iconOutline: 'school-outline' },
   Map:       { label: 'Harita',          icon: 'map',            iconOutline: 'map-outline' },
+  Communities: { label: 'Topluluklar',   icon: 'people',         iconOutline: 'people-outline' },
   Messages:  { label: 'Mesajlar',        icon: 'chatbubbles',    iconOutline: 'chatbubbles-outline' },
   Profile:   { label: 'Profil',          icon: 'person',         iconOutline: 'person-outline' },
   Admin:     { label: 'Admin',           icon: 'shield',         iconOutline: 'shield-outline' },
@@ -81,6 +84,10 @@ export default function AppTabs() {
         <Tab.Screen name="Academics" component={AcademicsScreen} />
       )}
       <Tab.Screen name="Map" component={MapScreen} />
+      {/* Topluluklar — admin hariç tüm roller (alt menüyü 6 sekmede tutmak için) */}
+      {!isAdmin && (
+        <Tab.Screen name="Communities" component={CommunitiesScreen} />
+      )}
       {/* Öğretmenler için birleşik Sohbetler sekmesi */}
       {isTeacher && (
         <Tab.Screen

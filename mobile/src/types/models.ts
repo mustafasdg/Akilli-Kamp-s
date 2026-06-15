@@ -150,6 +150,8 @@ export interface Teacher {
   roomNumber?: string;
   /** Öğretim üyesinin uzmanlık alanı */
   specialty?: string;
+  /** Resmi profil fotoğrafı URL'si (opsiyonel) */
+  profileImageUrl?: string;
   /** useTeachers tarafından anlık (şu anki saat dilimine göre) hesaplanır */
   currentStatus?: TeacherLiveStatus;
 }
@@ -167,6 +169,12 @@ export interface TeacherSchedule {
   type: 'Müsait' | 'Ders' | 'EkDers';
   courseName?: string | null;
   classLocation?: string | null;
+  /**
+   * Backend'in randevu taleplerinden hesapladığı yetkili slot durumu:
+   * Available = boş, Booked = onaylı/dolu, Pending = onay bekliyor.
+   * Eski sürümlerle uyum için opsiyonel; yoksa isAvailable'a düşülür.
+   */
+  status?: 'Available' | 'Booked' | 'Pending';
 }
 
 // ─── Appointments ─────────────────────────────────────────────────────────────

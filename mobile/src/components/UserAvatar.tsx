@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { getInitials, stringToColor } from '../utils/avatarUtils';
 
 interface Props {
@@ -7,12 +7,17 @@ interface Props {
   size?: number;
   fontSize?: number;
   backgroundColor?: string;
+  /** Profil fotoğrafı URL'si. Boşsa veya yüklenemezse baş harflere (placeholder) düşer. */
+  imageUrl?: string | null;
 }
 
-export default function UserAvatar({ name, size = 44, fontSize, backgroundColor }: Props) {
+export default function UserAvatar({ name, size = 44, fontSize, backgroundColor, imageUrl }: Props) {
+  const [imgError, setImgError] = useState(false);
+
   const bg = backgroundColor ?? stringToColor(name);
   const fs = fontSize ?? Math.round(size * 0.36);
   const radius = size / 2;
+  const showImage = !!imageUrl && !imgError;
 
   return (
     <View
@@ -21,9 +26,17 @@ export default function UserAvatar({ name, size = 44, fontSize, backgroundColor 
         { width: size, height: size, borderRadius: radius, backgroundColor: bg },
       ]}
     >
-      <Text style={[styles.text, { fontSize: fs }]}>
-        {getInitials(name)}
-      </Text>
+      {showImage ? (
+        <Image
+          source={{ uri: imageUrl as string }}
+          style={{ width: size, height: size, borderRadius: radius }}
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <Text style={[styles.text, { fontSize: fs }]}>
+          {getInitials(name)}
+        </Text>
+      )}
     </View>
   );
 }
@@ -32,6 +45,7 @@ const styles = StyleSheet.create({
   base: {
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,

@@ -7,105 +7,38 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useColors } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
-import { dataService } from '../services/dataService';
-
-type ChatMsg = {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  /** Ajanın o cevapta çağırdığı araçlar (geliştirme görünürlüğü) */
-  toolsCalled?: string[];
-  isError?: boolean;
-};
-
-const WELCOME: ChatMsg = {
-  id: 'welcome',
-  role: 'assistant',
-  content:
-    'Merhaba! Ben Kampüs Asistanı 🤖\n' +
-    'Öğretim üyeleri ve haftalık ders/müsaitlik programları hakkında soru sorabilirsin.\n' +
-    'Örn: "Cevriye hocanın bu haftaki müsait saatleri neler?"',
-};
-
-let msgCounter = 0;
-const genId = () => `m${Date.now()}_${msgCounter++}`;
+import { useChat, ChatMsg } from '../context/ChatContext';
 
 export default function AiAssistantScreen() {
   const c = useColors();
   const s = useMemo(() => makeStyles(c), [c]);
   const navigation = useNavigation();
-  const { user } = useAuth();
 
-  // "Yeni Sohbet" için oturum rotasyonu: suffix değişince LangGraph yepyeni bir
-  // thread_id görür ve geçmiş bağlam tamamen sıfırlanır (backend'de silme gerekmez).
-  const [chatSessionSuffix, setChatSessionSuffix] = useState(Date.now().toString());
+  // Mesajlar, yüklenme durumu ve gönderim artık global ChatContext'te yaşıyor →
+  // ekran unmount olsa bile (sayfa geçişi) sohbet korunur, sadece reload'da sıfırlanır.
+  const { messages, isLoading, sendMessage, clearChat } = useChat();
 
-  // En sağlam hafıza anahtarı: kullanıcı ID'si + aktif sohbet suffix'i.
-  const sessionId = useMemo(
-    () => (user ? `user-${user.id}-${chatSessionSuffix}` : `anonymous-${chatSessionSuffix}`),
-    [user, chatSessionSuffix],
-  );
-
-  const [messages, setMessages] = useState<ChatMsg[]>([WELCOME]);
   const [inputText, setInputText] = useState('');
-  const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList<ChatMsg>>(null);
 
-  const handleSend = useCallback(async () => {
+  const handleSend = useCallback(() => {
     const text = inputText.trim();
-    if (!text || sending) return;
+    if (!text || isLoading) return;
     setInputText('');
+    sendMessage(text);
+  }, [inputText, isLoading, sendMessage]);
 
-    const userMsg: ChatMsg = { id: genId(), role: 'user', content: text };
-    setMessages(prev => [...prev, userMsg]);
-    setSending(true);
-
-    try {
-      const { data } = await dataService.sendAiMessage(text, sessionId);
-      setMessages(prev => [
-        ...prev,
-        {
-          id: genId(),
-          role: 'assistant',
-          content: data.reply,
-          toolsCalled: data.debug_info?.tools_called,
-        },
-      ]);
-    } catch (err: any) {
-      // OpenAI kota hatası (502/429) → kibar bir uyarı; diğer hatalar → genel mesaj.
-      const status = err?.response?.status;
-      const content =
-        status === 502 || status === 429
-          ? 'Asistan şu an hizmet veremiyor. Lütfen daha sonra tekrar deneyin.'
-          : 'Bir hata oluştu. İnternet bağlantını kontrol edip tekrar dene.';
-      setMessages(prev => [
-        ...prev,
-        { id: genId(), role: 'assistant', content, isError: true },
-      ]);
-    } finally {
-      setSending(false);
-    }
-  }, [inputText, sending, sessionId]);
-
-  // "Yeni Sohbet": ekranı temizle + oturum suffix'ini döndür → sonraki mesaj yeni thread'de.
+  // "Yeni Sohbet": onaylanınca context sohbeti temizler + oturumu döndürür.
   const handleClearChat = useCallback(() => {
     Alert.alert(
       'Yeni Sohbet',
       'Sohbet geçmişi temizlensin mi?',
       [
         { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Evet',
-          style: 'destructive',
-          onPress: () => {
-            setMessages([WELCOME]);
-            setChatSessionSuffix(Date.now().toString());
-          },
-        },
+        { text: 'Evet', style: 'destructive', onPress: clearChat },
       ],
     );
-  }, []);
+  }, [clearChat]);
 
   // Inverted FlatList → en yeni mesaj altta görünür; veriyi ters çevirip veririz.
   const reversed = useMemo(() => [...messages].reverse(), [messages]);
@@ -148,7 +81,7 @@ export default function AiAssistantScreen() {
           contentContainerStyle={s.list}
           showsVerticalScrollIndicator={false}
           // inverted listte header en altta görünür → "yazıyor" göstergesi en altta
-          ListHeaderComponent={sending ? <TypingIndicator s={s} c={c} /> : null}
+          ListHeaderComponent={isLoading ? <TypingIndicator s={s} c={c} /> : null}
           renderItem={({ item }) => <Bubble msg={item} s={s} />}
         />
 
@@ -165,15 +98,15 @@ export default function AiAssistantScreen() {
             returnKeyType="send"
             onSubmitEditing={handleSend}
             blurOnSubmit={false}
-            editable={!sending}
+            editable={!isLoading}
           />
           <TouchableOpacity
-            style={[s.sendBtn, { opacity: inputText.trim() && !sending ? 1 : 0.4 }]}
+            style={[s.sendBtn, { opacity: inputText.trim() && !isLoading ? 1 : 0.4 }]}
             onPress={handleSend}
-            disabled={!inputText.trim() || sending}
+            disabled={!inputText.trim() || isLoading}
             activeOpacity={0.8}
           >
-            {sending
+            {isLoading
               ? <ActivityIndicator size="small" color="#fff" />
               : <Ionicons name="send" size={18} color="#fff" />}
           </TouchableOpacity>

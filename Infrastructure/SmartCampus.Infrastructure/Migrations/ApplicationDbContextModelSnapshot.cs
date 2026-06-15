@@ -107,6 +107,63 @@ namespace SmartCampus.Infrastructure.Migrations
                     b.ToTable("Appointments");
                 });
 
+            modelBuilder.Entity("SmartCampus.Domain.Entities.Community", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("ID");
+
+                    b.ToTable("Communities");
+                });
+
+            modelBuilder.Entity("SmartCampus.Domain.Entities.CommunityMessage", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<int>("CommunityId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("CommunityId", "SentAt");
+
+                    b.ToTable("CommunityMessages");
+                });
+
             modelBuilder.Entity("SmartCampus.Domain.Entities.Event", b =>
                 {
                     b.Property<int>("ID")
@@ -391,6 +448,10 @@ namespace SmartCampus.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ProfileImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("ResearchAreas")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -414,6 +475,24 @@ namespace SmartCampus.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("SmartCampus.Domain.Entities.UserCommunity", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CommunityId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("UserId", "CommunityId");
+
+                    b.HasIndex("CommunityId");
+
+                    b.ToTable("UserCommunities");
                 });
 
             modelBuilder.Entity("SmartCampus.Domain.Entities.Announcement", b =>
@@ -457,6 +536,25 @@ namespace SmartCampus.Infrastructure.Migrations
                     b.Navigation("Student");
 
                     b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("SmartCampus.Domain.Entities.CommunityMessage", b =>
+                {
+                    b.HasOne("SmartCampus.Domain.Entities.Community", "Community")
+                        .WithMany()
+                        .HasForeignKey("CommunityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SmartCampus.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Community");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("SmartCampus.Domain.Entities.Event", b =>
@@ -539,6 +637,25 @@ namespace SmartCampus.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("SmartCampus.Domain.Entities.UserCommunity", b =>
+                {
+                    b.HasOne("SmartCampus.Domain.Entities.Community", "Community")
+                        .WithMany()
+                        .HasForeignKey("CommunityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SmartCampus.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Community");
+
+                    b.Navigation("User");
                 });
 #pragma warning restore 612, 618
         }

@@ -138,14 +138,16 @@ function TeacherCard({
   teacher: Teacher; onPress: () => void;
   s: ReturnType<typeof makeStyles>; c: any;
 }) {
-  const dept = teacher.department ?? inferDepartment(teacher.email);
+  // Tüm akademisyenler Bilgisayar Mühendisliği bölümünden; arayüzde sabit gösterilir
+  // (eski/rastgele bölüm verileri yok sayılır).
+  const dept = 'Bilgisayar Mühendisliği';
   // Anlık saat dilimine göre durum (useTeachers hesaplar): müsait → yeşil, değilse → kırmızı
   const available = teacher.currentStatus?.available ?? false;
   const label     = teacher.currentStatus?.label ?? 'Müsait Değil';
 
   return (
     <TouchableOpacity style={s.card} onPress={onPress} activeOpacity={0.85}>
-      <UserAvatar name={teacher.name} size={52} backgroundColor={c.primary} />
+      <UserAvatar name={teacher.name} size={52} backgroundColor={c.primary} imageUrl={teacher.profileImageUrl} />
 
       <View style={s.cardBody}>
         <Text style={s.cardName} numberOfLines={1}>{teacher.name}</Text>
@@ -178,16 +180,6 @@ function TeacherCard({
       <Ionicons name="chevron-forward" size={22} color={c.primary} />
     </TouchableOpacity>
   );
-}
-
-/** Email'den basit bölüm tahmini (bölüm verisi yoksa) */
-function inferDepartment(email: string): string {
-  const domain = email.split('@')[0] ?? '';
-  if (domain.includes('bilgisayar') || domain.includes('cs')) return 'Bilgisayar Müh.';
-  if (domain.includes('elektrik') || domain.includes('ee'))  return 'Elektrik-Elektronik';
-  if (domain.includes('makine')   || domain.includes('me'))  return 'Makine Müh.';
-  if (domain.includes('insaat')   || domain.includes('ce'))  return 'İnşaat Müh.';
-  return 'Akademik Personel';
 }
 
 // ─── Stiller ─────────────────────────────────────────────────────────────────

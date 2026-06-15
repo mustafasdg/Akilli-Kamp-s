@@ -75,6 +75,20 @@ namespace SmartCampus.Application.Services
                 var available = await IsTeacherAvailableAsync(teacherId, appointmentDate, ct);
                 if (!available)
                     throw new InvalidOperationException("Öğretmen seçilen tarih ve saatte müsait değil.");
+
+                // Slot referansı verilmemiş (örn. AI asistanı tarih+saat gönderir) → uygun slotu
+                // çözüp randevuya bağla. Böylece talep takvimde doğru slota düşer ve istemci
+                // "Bekliyor" durumunu ScheduleId üzerinden eşleştirebilir.
+                var appointmentTime = TimeOnly.FromDateTime(appointmentDate);
+                var matchedSlot = await _uow.TeacherSchedules.FirstOrDefaultAsync(
+                    s => s.TeacherId == teacherId &&
+                         s.DayOfWeek == appointmentDate.DayOfWeek &&
+                         s.StartTime <= appointmentTime &&
+                         s.EndTime > appointmentTime &&
+                         s.IsAvailable, ct);
+
+                if (matchedSlot is not null)
+                    scheduleId = matchedSlot.ID;
             }
 
             var appointment = new Appointment

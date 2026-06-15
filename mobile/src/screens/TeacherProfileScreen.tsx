@@ -118,16 +118,30 @@ export default function TeacherProfileScreen() {
     [schedules, selectedDay],
   );
 
+  // Öğrencinin bu slota ait kendi randevusu (varsa) — "Senin talebin" etiketi için
+  const myApptForSlot = useCallback(
+    (slot: TeacherSchedule) => myAppointments.find(a => a.scheduleId === slot.id),
+    [myAppointments],
+  );
+
   const getSlotState = useCallback(
     (slot: TeacherSchedule): 'available' | 'pending' | 'taken' | 'inClass' => {
       if (slot.type === 'Ders' || slot.type === 'EkDers') return 'inClass';
-      const myAppt = myAppointments.find(a => a.scheduleId === slot.id);
+
+      // 1) Önce öğrencinin kendi randevusu (anlık tazelik için /appointments/mine'dan)
+      const myAppt = myApptForSlot(slot);
       if (myAppt?.status === AppointmentStatus.Pending)  return 'pending';
       if (myAppt?.status === AppointmentStatus.Approved) return 'taken';
+
+      // 2) Backend'in hesapladığı yetkili durum (diğer öğrenciler + AI talepleri dahil)
+      if (slot.status === 'Pending') return 'pending';
+      if (slot.status === 'Booked')  return 'taken';
+
+      // 3) Geriye dönük uyumluluk: status alanı yoksa eski isAvailable bayrağına düş
       if (!slot.isAvailable) return 'taken';
       return 'available';
     },
-    [myAppointments],
+    [myApptForSlot],
   );
 
   const isNowSlot = useCallback(
@@ -199,15 +213,14 @@ export default function TeacherProfileScreen() {
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={s.headerTitle} numberOfLines={1}>Akademisyen Profili</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Chat', { teacher })} hitSlop={12}>
-          <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
-        </TouchableOpacity>
+        {/* Sağ üst mesaj butonu kaldırıldı; başlığın ortalı kalması için boş alan bırakıldı. */}
+        <View style={s.headerSpacer} />
       </View>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         {/* Profil Kartı */}
         <View style={s.profileCard}>
-          <UserAvatar name={teacher.name} size={72} backgroundColor={c.primary} />
+          <UserAvatar name={teacher.name} size={120} backgroundColor={c.primary} imageUrl={teacher.profileImageUrl} />
           <Text style={s.name}>{teacher.name}</Text>
 
           {/* Uzmanlık alanı */}
@@ -301,6 +314,9 @@ export default function TeacherProfileScreen() {
                 const state       = getSlotState(slot);
                 const isNow       = isNowSlot(slot);
                 const isClickable = state === 'available';
+                const isMinePending =
+                  state === 'pending' &&
+                  myApptForSlot(slot)?.status === AppointmentStatus.Pending;
 
                 const iconName =
                   state === 'available' ? 'time-outline'        :
@@ -360,6 +376,9 @@ export default function TeacherProfileScreen() {
                     ]}>
                       {badgeText}
                     </Text>
+                    {isMinePending ? (
+                      <Text style={s.slotMineHint} numberOfLines={1}>Senin talebin</Text>
+                    ) : null}
                     {state === 'inClass' && slot.courseName ? (
                       <Text style={s.slotCourseHint} numberOfLines={1}>{slot.courseName}</Text>
                     ) : null}
@@ -435,6 +454,8 @@ const makeStyles = (c: ReturnType<typeof useColors>) =>
       flex: 1, color: '#fff', fontSize: 17, fontWeight: '700',
       textAlign: 'center', marginHorizontal: 8,
     },
+    // Sağdaki mesaj ikonu kaldırıldı; başlığı ortalı tutmak için ok ile aynı genişlikte boşluk.
+    headerSpacer: { width: 24 },
 
     scroll: { paddingBottom: 40 },
 
@@ -530,6 +551,7 @@ const makeStyles = (c: ReturnType<typeof useColors>) =>
     slotBadgeInClass:   { color: c.primary },
 
     slotCourseHint: { fontSize: 9, color: c.primary, marginTop: 2, textAlign: 'center', opacity: 0.8 },
+    slotMineHint:   { fontSize: 9, color: c.warning, marginTop: 2, textAlign: 'center', fontWeight: '700' },
 
     emptySlots: { alignItems: 'center', paddingVertical: 32 },
 

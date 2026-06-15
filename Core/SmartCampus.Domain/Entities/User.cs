@@ -40,5 +40,9 @@ namespace SmartCampus.Domain.Entities
         /// <summary>Öğretim üyesinin uzmanlık alanı (yalnızca teacher rolünde dolu).</summary>
         [MaxLength(150)]
         public string? Specialty { get; set; }
+
+        /// <summary>Profil / öğretim üyesi fotoğrafı URL'si (opsiyonel).</summary>
+        [MaxLength(500)]
+        public string? ProfileImageUrl { get; set; }
     }
 }

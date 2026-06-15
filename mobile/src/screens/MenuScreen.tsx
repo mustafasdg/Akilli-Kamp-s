@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList,
   ActivityIndicator, RefreshControl, TouchableOpacity, TextInput,
@@ -8,7 +8,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMenus } from '../hooks/useMenus';
 import { useFavoriteMenus } from '../hooks/useFavoriteMenus';
 import { Menu } from '../types/models';
+import { DailyMenu } from '../types/Menu';
 import { useColors } from '../context/ThemeContext';
+import { menuService } from '../services/menuService';
+import DailyMenuCard from '../components/MenuCard';
 
 export default function MenuScreen() {
   const c = useColors();
@@ -17,6 +20,22 @@ export default function MenuScreen() {
   const { toggle, isFavorite } = useFavoriteMenus();
   const [query, setQuery] = useState('');
   const [showFavOnly, setShowFavOnly] = useState(false);
+  const [dailyMenu, setDailyMenu] = useState<DailyMenu | null>(null);
+  const [dailyLoading, setDailyLoading] = useState(true);
+  const [dailyError, setDailyError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await menuService.getTodayMenu();
+        setDailyMenu(data);
+      } catch {
+        setDailyError('Bugünün menüsü yüklenemedi.');
+      } finally {
+        setDailyLoading(false);
+      }
+    })();
+  }, []);
 
   const filtered = useMemo(() => {
     let list = items;
@@ -29,6 +48,22 @@ export default function MenuScreen() {
     }
     return list;
   }, [items, query, showFavOnly, isFavorite]);
+
+  const todayHeader = (
+    <View style={s.todaySection}>
+      {dailyLoading ? (
+        <ActivityIndicator color={c.primary} style={{ paddingVertical: 12 }} />
+      ) : dailyError ? (
+        <View style={s.dailyErrorWrap}>
+          <Ionicons name="alert-circle-outline" size={15} color={c.error} />
+          <Text style={s.dailyErrorText}>{dailyError}</Text>
+        </View>
+      ) : dailyMenu ? (
+        <DailyMenuCard menu={dailyMenu} />
+      ) : null}
+      <Text style={s.allMenusLabel}>Geçmiş Menüler</Text>
+    </View>
+  );
 
   if (loading && !items.length) {
     return (
@@ -63,6 +98,7 @@ export default function MenuScreen() {
         keyExtractor={item => String(item.id)}
         contentContainerStyle={s.list}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={todayHeader}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={c.primary} />}
         onEndReached={!query && !showFavOnly ? loadMore : undefined}
         onEndReachedThreshold={0.4}
@@ -208,6 +244,17 @@ const makeStyles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
 
   list: { padding: 16, gap: 12, paddingBottom: 32 },
 
+  // ─── Today section (ListHeaderComponent) ──────────────────────────────────
+  todaySection: { gap: 12, paddingBottom: 4 },
+  allMenusLabel: { fontSize: 13, fontWeight: '600', color: c.textSecondary },
+  dailyErrorWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: c.surface, padding: 12, borderRadius: 12,
+    borderWidth: 1, borderColor: c.border,
+  },
+  dailyErrorText: { fontSize: 13, color: c.textMuted, flex: 1 },
+
+  // ─── Historical menu card ─────────────────────────────────────────────────
   card: {
     backgroundColor: c.surface, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: c.border, gap: 12,

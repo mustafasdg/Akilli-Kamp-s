@@ -20,6 +20,9 @@ namespace SmartCampus.Application
             services.AddScoped<ITeacherScheduleService, TeacherScheduleService>();
             services.AddScoped<IMessageService, MessageService>();
 
+            // Topluluk servisi
+            services.AddScoped<ICommunityService, CommunityService>();
+
             return services;
         }
     }

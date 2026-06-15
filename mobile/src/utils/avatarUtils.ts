@@ -19,12 +19,32 @@ export function formatName(name: string): string {
   return [...firstNames, lastName].join(' ');
 }
 
-/** Ad soyaddan 2 baş harf üretir: "Ahmet Yılmaz" → "AY" */
+/**
+ * Akademik unvan parçaları (noktasız, Türkçe küçük harf). Baş harf üretilirken yok sayılır.
+ * "Prof. Dr." → prof + dr, "Dr. Öğr. Üyesi" → dr + öğr + üyesi, "Arş. Gör." → arş + gör ...
+ */
+const TITLE_TOKENS = new Set(['prof', 'doç', 'dr', 'öğr', 'üyesi', 'arş', 'gör']);
+
+/**
+ * Ad soyaddan 2 baş harf üretir; baştaki akademik unvanları yok sayar:
+ *   "Prof. Dr. Tuncay AYDOĞAN"     → "TA"
+ *   "Doç. Dr. Ahmet Ali SÜZEN"     → "AS"  (ilk ad + soyad)
+ *   "Dr. Öğr. Üyesi Burhan DUMAN"  → "BD"
+ *   "Arş. Gör. Rafet GÖZBAŞI"      → "RG"
+ */
 export function getInitials(name: string): string {
-  const parts = name.trim().split(' ').filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  if (parts.length === 1 && parts[0].length >= 2) return parts[0].slice(0, 2).toUpperCase();
-  return (name[0] ?? '?').toUpperCase();
+  const allWords = name.trim().split(/\s+/).filter(Boolean);
+
+  // Her kelimeden noktaları at, Türkçe küçült ve unvansa ele.
+  // Geriye saf isim kalmazsa (örn. sadece unvan girilmişse) orijinal kelimelere düş.
+  const nameWords = allWords.filter(
+    w => !TITLE_TOKENS.has(w.replace(/\./g, '').toLocaleLowerCase('tr')),
+  );
+  const parts = nameWords.length > 0 ? nameWords : allWords;
+
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toLocaleUpperCase('tr');
+  if (parts.length === 1 && parts[0].length >= 2) return parts[0].slice(0, 2).toLocaleUpperCase('tr');
+  return (parts[0]?.[0] ?? name[0] ?? '?').toLocaleUpperCase('tr');
 }
 
 /** İsimden tutarlı bir renk üretir (aynı isim → hep aynı renk) */

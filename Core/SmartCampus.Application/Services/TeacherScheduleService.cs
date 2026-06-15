@@ -15,10 +15,57 @@ namespace SmartCampus.Application.Services
         public async Task<IReadOnlyList<TeacherSchedule>> GetTeacherSchedulesAsync(
             int teacherId,
             CancellationToken ct = default)
+        {
             // Mesai dışı (örn. 07:00) eski kayıtlar hiçbir istemciye sızmasın
-            => await _uow.TeacherSchedules.ListAsync(
+            var slots = await _uow.TeacherSchedules.ListAsync(
                 s => s.TeacherId == teacherId &&
                      s.StartTime >= WorkdayStart && s.StartTime < WorkdayEnd, ct);
+
+            if (slots.Count == 0) return slots;
+
+            // Slot durumunu (Available/Booked/Pending) Appointment tablosundan türet.
+            // Tek seferde öğretmenin aktif (bekleyen/onaylı) taleplerini çekip her slota eşleştir.
+            var activeAppointments = await _uow.Appointments.ListAsync(
+                a => a.TeacherId == teacherId &&
+                     (a.Status == AppointmentStatus.Pending ||
+                      a.Status == AppointmentStatus.Approved), ct);
+
+            foreach (var slot in slots)
+            {
+                // Ders/EkDers slotları randevuya kapalı; durum istemcide Type üzerinden çizilir.
+                if (slot.Type != ScheduleType.Müsait)
+                {
+                    slot.Status = SlotStatus.Available;
+                    continue;
+                }
+
+                var hasApproved = activeAppointments.Any(
+                    a => MatchesSlot(a, slot) && a.Status == AppointmentStatus.Approved);
+                var hasPending = activeAppointments.Any(
+                    a => MatchesSlot(a, slot) && a.Status == AppointmentStatus.Pending);
+
+                slot.Status =
+                    hasApproved        ? SlotStatus.Booked  :
+                    hasPending         ? SlotStatus.Pending :
+                    !slot.IsAvailable  ? SlotStatus.Booked  :
+                                         SlotStatus.Available;
+            }
+
+            return slots;
+        }
+
+        // Bir randevuyu bir slota eşleştirir: önce ScheduleId, yoksa (AI/eski kayıtlar için)
+        // gün + saat aralığı üzerinden. Slotlar haftalık tekrarlı olduğundan tarihe değil,
+        // güne ve saate bakılır (mevcut istemci davranışıyla tutarlı).
+        private static bool MatchesSlot(Appointment a, TeacherSchedule s)
+        {
+            if (a.ScheduleId == s.ID) return true;
+            if (a.ScheduleId != null) return false; // başka bir slota bağlı
+
+            var time = TimeOnly.FromDateTime(a.AppointmentDate);
+            return a.AppointmentDate.DayOfWeek == s.DayOfWeek &&
+                   time >= s.StartTime && time < s.EndTime;
+        }
 
         // Mesai sınırları: tüm slotlar 09:00 - 17:00 arasında ve tam 1 saat olmalı
         private static readonly TimeOnly WorkdayStart = new(9, 0);

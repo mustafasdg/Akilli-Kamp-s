@@ -5,6 +5,7 @@ Akış:
                                               \--hayır-> END
 """
 import os
+from datetime import datetime
 
 from langchain_core.messages import SystemMessage
 from langchain_groq import ChatGroq
@@ -24,26 +25,48 @@ class AgentState(MessagesState):
     student_id: int | None
 
 
-# Ajanın davranışını yönlendiren sistem komutu.
-SYSTEM_PROMPT = SystemMessage(
-    content=(
-        "Sen ISUBÜ Akıllı Kampüs uygulamasının Türkçe konuşan yapay zeka asistanısın. "
-        "Öğrencilere öğretim üyeleri, haftalık programlar ve randevu oluşturma "
-        "konusunda yardımcı olursun.\n"
-        "- Bir hocanın programını öğrenmek için ÖNCE `get_university_teachers` ile "
-        "hocanın 'id' değerini bul, SONRA `get_teacher_schedule` ile programını getir.\n"
-        "- teacher_id'yi MUTLAKA get_university_teachers sonucundaki gerçek 'id'den al; "
-        "ASLA kendin bir sayı uydurma.\n"
-        "- Randevu oluşturmak için `create_appointment` aracını kullan. ÖNCE "
-        "`get_teacher_schedule` ile istenen saatin isAvailable=true (boş) olduğunu "
-        "doğrula, SONRA randevuyu oluştur. Araca teacher_id, date (YYYY-MM-DD), "
-        "start_time ve end_time (HH:mm) ver; öğrenci kimliğini SORMA, otomatik gelir.\n"
-        "- Tarih/saat belirsizse randevu oluşturmadan önce kullanıcıdan netleştir.\n"
-        "- Günleri ve saatleri kullanıcıya sade, anlaşılır biçimde sun.\n"
-        "- isAvailable=true olan slotlar randevuya müsaittir; false olanlar ders/doludur.\n"
-        "- Bilgi uydurma; her zaman araçlardan gelen gerçek veriyi kullan."
+_WEEKDAYS_TR = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+
+
+def _build_system_prompt() -> SystemMessage:
+    """Her çağrıda güncel tarih/saati içeren sistem mesajını üretir.
+
+    Sabit bir modül düzeyi sabiti yerine fonksiyon kullanılmasının nedeni:
+    LangGraph'ta chatbot düğümü her istek için çağrılır; böylece model
+    her yanıtta gerçek güncel zamanı görür ve 'yarın', 'haftaya' gibi
+    göreli tarihleri doğru hesaplayabilir.
+    """
+    now = datetime.now()
+    weekday = _WEEKDAYS_TR[now.weekday()]
+    date_str = now.strftime(f"%d.%m.%Y {weekday} %H:%M")
+
+    return SystemMessage(
+        content=(
+            f"Bugünün tarihi ve saati: {date_str}.\n"
+            "Sen ISUBÜ Akıllı Kampüs uygulamasının Türkçe konuşan yapay zeka asistanısın. "
+            "Öğrencilere öğretim üyeleri, haftalık programlar ve randevu oluşturma "
+            "konusunda yardımcı olursun.\n"
+            "- Bir hocanın programını öğrenmek için ÖNCE `get_university_teachers` ile "
+            "hocanın 'id' değerini bul, SONRA `get_teacher_schedule` ile programını getir.\n"
+            "- teacher_id'yi MUTLAKA get_university_teachers sonucundaki gerçek 'id'den al; "
+            "ASLA kendin bir sayı uydurma.\n"
+            "- Randevu oluşturmak için `create_appointment` aracını kullan. ÖNCE "
+            "`get_teacher_schedule` ile istenen saatin isAvailable=true (boş) olduğunu "
+            "doğrula, SONRA randevuyu oluştur. Araca teacher_id, date (YYYY-MM-DD), "
+            "start_time ve end_time (HH:mm) ver; öğrenci kimliğini SORMA, otomatik gelir.\n"
+            "- Randevu talebi gönderildikten sonra kullanıcıya ASLA 'Randevunuz oluşturuldu' "
+            "veya 'Randevunuz onaylandı' deme. Bunun yerine şunu söyle: "
+            "'Randevu talebiniz hocaya iletildi, hocanın onayı bekleniyor.'\n"
+            "- Tarih/saat belirsizse randevu oluşturmadan önce kullanıcıdan netleştir.\n"
+            "- 'Yarın', 'haftaya Salı', 'öbür gün' gibi göreli tarihleri yukarıdaki "
+            "güncel tarih/saati referans alarak mutlak tarihe (YYYY-MM-DD) çevir.\n"
+            "- Günleri ve saatleri kullanıcıya sade, anlaşılır biçimde sun.\n"
+            "- isAvailable=true olan slotlar randevuya müsaittir; false olanlar ders/doludur.\n"
+            "- Yemekhane menüsü, bugünkü yemekler veya kalori hakkında soru gelirse "
+            "`get_today_menu` aracını çağır; sonucu sade ve anlaşılır biçimde sun.\n"
+            "- Bilgi uydurma; her zaman araçlardan gelen gerçek veriyi kullan."
+        )
     )
-)
 
 
 def build_agent(llm=None):
@@ -60,8 +83,8 @@ def build_agent(llm=None):
     llm_with_tools = llm.bind_tools(TOOLS)
 
     def chatbot(state: AgentState) -> dict:
-        """LLM düğümü: sistem komutu + sohbet geçmişiyle modeli çağırır."""
-        response = llm_with_tools.invoke([SYSTEM_PROMPT, *state["messages"]])
+        """LLM düğümü: güncel tarih/saat içeren sistem komutu + sohbet geçmişiyle modeli çağırır."""
+        response = llm_with_tools.invoke([_build_system_prompt(), *state["messages"]])
         return {"messages": [response]}
 
     graph = StateGraph(AgentState)

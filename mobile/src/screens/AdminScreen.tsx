@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, Alert, ActivityIndicator, Modal,
+  TextInput, Alert, ActivityIndicator, Modal, Image,
   KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useColors } from '../context/ThemeContext';
 import apiClient from '../services/apiClient';
+import { communityService } from '../services/communityService';
 import { Announcement } from '../types/models';
+import { Community } from '../types/Community';
+import { AppRootParamList } from '../navigation/RootNavigator';
 
 interface PagedResult {
   items: Announcement[];
@@ -17,28 +22,39 @@ interface PagedResult {
   page: number;
 }
 
-const KATEGORILER = ['Akademik','Etkinlik','Spor','Sosyal','Kariyer','Uluslararası','Genel'];
+type AdminTab = 'announcements' | 'communities';
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+const KATEGORILER = ['Akademik', 'Etkinlik', 'Spor', 'Sosyal', 'Kariyer', 'Uluslararası', 'Genel'];
 
 export default function AdminScreen() {
   const c = useColors();
   const s = useMemo(() => makeStyles(c), [c]);
+  const navigation = useNavigation<NativeStackNavigationProp<AppRootParamList>>();
 
-  const [items, setItems]         = useState<Announcement[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [totalCount, setTotal]    = useState(0);
-  const [page, setPage]           = useState(1);
+  const [tab, setTab] = useState<AdminTab>('announcements');
+  const [query, setQuery] = useState('');
+
+  // ── Duyurular ───────────────────────────────────────────────────────────────
+  const [items, setItems] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalCount, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [query, setQuery]         = useState('');
-  const [modalVisible, setModal]  = useState(false);
-  const [saving, setSaving]       = useState(false);
 
-  // Form state
-  const [editId, setEditId]       = useState<number | null>(null);
-  const [fBaslik, setFBaslik]     = useState('');
+  // ── Topluluklar ─────────────────────────────────────────────────────────────
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [commLoading, setCommLoading] = useState(true);
+
+  // ── Düzenleme modalı (oluşturma artık ayrı ekranda) ─────────────────────────
+  const [modalVisible, setModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [fBaslik, setFBaslik] = useState('');
   const [fKategori, setFKategori] = useState('Akademik');
-  const [fIcerik, setFIcerik]     = useState('');
+  const [fIcerik, setFIcerik] = useState('');
 
-  const load = useCallback(async (p = 1) => {
+  const loadAnnouncements = useCallback(async (p = 1) => {
     try {
       setLoading(true);
       const res = await apiClient.get<PagedResult>(`/admin/announcements?page=${p}&pageSize=20`);
@@ -53,41 +69,72 @@ export default function AdminScreen() {
     }
   }, []);
 
-  useEffect(() => { load(1); }, [load]);
+  const loadCommunities = useCallback(async () => {
+    try {
+      setCommLoading(true);
+      const data = await communityService.getAllCommunities();
+      setCommunities(data);
+    } catch {
+      Alert.alert('Hata', 'Topluluklar yüklenemedi.');
+    } finally {
+      setCommLoading(false);
+    }
+  }, []);
 
-  const filtered = useMemo(() => {
+  // İlk açılış + sekme değişimi → aktif sekmeyi yükle
+  useEffect(() => {
+    if (tab === 'announcements') loadAnnouncements(1);
+    else loadCommunities();
+  }, [tab, loadAnnouncements, loadCommunities]);
+
+  // Oluşturma ekranından geri dönünce aktif sekmeyi tazele
+  useEffect(() => {
+    const unsub = navigation.addListener('focus', () => {
+      if (tab === 'announcements') loadAnnouncements(1);
+      else loadCommunities();
+    });
+    return unsub;
+  }, [navigation, tab, loadAnnouncements, loadCommunities]);
+
+  const filteredAnnouncements = useMemo(() => {
     if (!query.trim()) return items;
     const q = query.toLowerCase();
-    return items.filter(a =>
-      a.baslik.toLowerCase().includes(q) || a.kategori.toLowerCase().includes(q)
-    );
+    return items.filter(a => a.baslik.toLowerCase().includes(q) || a.kategori.toLowerCase().includes(q));
   }, [items, query]);
 
-  const openCreate = () => {
-    setEditId(null); setFBaslik(''); setFKategori('Akademik'); setFIcerik('');
-    setModal(true);
-  };
+  const filteredCommunities = useMemo(() => {
+    if (!query.trim()) return communities;
+    const q = query.toLowerCase();
+    return communities.filter(
+      x => x.name.toLowerCase().includes(q) || (x.description ?? '').toLowerCase().includes(q),
+    );
+  }, [communities, query]);
+
+  // ── Akıllı FAB: aktif sekmeye göre ilgili oluşturma ekranına git ────────────
+  const handleFab = useCallback(() => {
+    if (tab === 'announcements') navigation.navigate('CreateAnnouncement');
+    else navigation.navigate('CreateCommunity');
+  }, [tab, navigation]);
 
   const openEdit = (item: Announcement) => {
-    setEditId(item.id); setFBaslik(item.baslik);
-    setFKategori(item.kategori); setFIcerik(item.icerik);
+    setEditId(item.id);
+    setFBaslik(item.baslik);
+    setFKategori(item.kategori);
+    setFIcerik(item.icerik);
     setModal(true);
   };
 
   const handleSave = async () => {
     if (!fBaslik.trim() || !fIcerik.trim()) {
-      Alert.alert('Hata', 'Başlık ve içerik zorunludur.'); return;
+      Alert.alert('Hata', 'Başlık ve içerik zorunludur.');
+      return;
     }
     try {
       setSaving(true);
       const body = { baslik: fBaslik.trim(), kategori: fKategori, icerik: fIcerik.trim() };
-      if (editId) {
-        await apiClient.put(`/admin/announcements/${editId}`, body);
-      } else {
-        await apiClient.post('/admin/announcements', body);
-      }
+      if (editId) await apiClient.put(`/admin/announcements/${editId}`, body);
       setModal(false);
-      load(page);
+      loadAnnouncements(page);
     } catch (e: any) {
       Alert.alert('Hata', e?.response?.data?.message ?? 'Kaydedilemedi.');
     } finally {
@@ -106,69 +153,121 @@ export default function AdminScreen() {
           onPress: async () => {
             try {
               await apiClient.delete(`/admin/announcements/${item.id}`);
-              load(page);
+              loadAnnouncements(page);
             } catch {
               Alert.alert('Hata', 'Silinemedi.');
             }
-          }
-        }
-      ]
+          },
+        },
+      ],
     );
   };
 
+  const handleDeleteCommunity = (community: Community) => {
+    Alert.alert(
+      'Topluluğu Sil',
+      'Bu topluluğu silmek istediğinize emin misiniz? Tüm mesajlar silinecektir.',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sil', style: 'destructive',
+          onPress: async () => {
+            try {
+              await communityService.deleteCommunity(community.id);
+              loadCommunities();
+            } catch {
+              Alert.alert('Hata', 'Topluluk silinemedi.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const activeLoading = tab === 'announcements' ? loading : commLoading;
+  const subtitle = tab === 'announcements' ? `${totalCount} duyuru` : `${communities.length} topluluk`;
+
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      {/* Header */}
+      {/* ── Header ───────────────────────────────────────────────── */}
       <View style={s.header}>
-        <View>
-          <Text style={s.headerTitle}>Admin Paneli</Text>
-          <Text style={s.headerSub}>{totalCount} duyuru</Text>
+        <View style={s.headerIcon}>
+          <Ionicons name="shield-checkmark" size={20} color="#fff" />
         </View>
-        <TouchableOpacity style={s.addBtn} onPress={openCreate} activeOpacity={0.8}>
-          <Ionicons name="add" size={20} color="#fff" />
-          <Text style={s.addBtnText}>Yeni</Text>
-        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={s.headerTitle}>Kontrol Merkezi</Text>
+          <Text style={s.headerSub}>{subtitle}</Text>
+        </View>
       </View>
 
-      {/* Arama */}
+      {/* ── Segmented Control (Duyurular / Topluluklar) ──────────── */}
+      <View style={s.toggleWrap}>
+        {(['announcements', 'communities'] as const).map((key) => {
+          const active = tab === key;
+          const label = key === 'announcements' ? 'Duyurular' : 'Topluluklar';
+          const iconName: IoniconName =
+            key === 'announcements'
+              ? active ? 'megaphone' : 'megaphone-outline'
+              : active ? 'people' : 'people-outline';
+          return (
+            <TouchableOpacity
+              key={key}
+              style={[s.toggleBtn, active && s.toggleBtnActive]}
+              onPress={() => { setTab(key); setQuery(''); }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name={iconName} size={16} color={active ? '#fff' : c.textSecondary} />
+              <Text style={[s.toggleText, active && s.toggleTextActive]}>{label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* ── Arama ────────────────────────────────────────────────── */}
       <View style={s.searchWrap}>
         <Ionicons name="search-outline" size={16} color={c.textMuted} />
         <TextInput
           style={s.searchInput}
-          placeholder="Duyuru ara..."
+          placeholder={tab === 'announcements' ? 'Duyuru ara...' : 'Topluluk ara...'}
           placeholderTextColor={c.textMuted}
           value={query}
           onChangeText={setQuery}
         />
+        {query.length > 0 && (
+          <TouchableOpacity onPress={() => setQuery('')}>
+            <Ionicons name="close-circle" size={16} color={c.textMuted} />
+          </TouchableOpacity>
+        )}
       </View>
 
-      {loading ? (
+      {/* ── Liste ────────────────────────────────────────────────── */}
+      {activeLoading ? (
         <View style={s.center}><ActivityIndicator size="large" color={c.primary} /></View>
-      ) : (
+      ) : tab === 'announcements' ? (
         <FlatList
-          data={filtered}
+          data={filteredAnnouncements}
           keyExtractor={item => String(item.id)}
           contentContainerStyle={s.list}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={s.center}>
               <Text style={{ fontSize: 40 }}>📭</Text>
-              <Text style={s.emptyText}>Henüz duyuru yok.</Text>
+              <Text style={s.emptyText}>{query ? 'Sonuç bulunamadı.' : 'Henüz duyuru yok.'}</Text>
             </View>
           }
           ListFooterComponent={
-            totalPages > 1 ? (
+            totalPages > 1 && !query ? (
               <View style={s.pagination}>
                 <TouchableOpacity
                   style={[s.pageBtn, page <= 1 && s.pageBtnDisabled]}
-                  onPress={() => load(page - 1)} disabled={page <= 1}
+                  onPress={() => loadAnnouncements(page - 1)} disabled={page <= 1}
                 >
                   <Ionicons name="chevron-back" size={16} color={page <= 1 ? c.textMuted : c.primary} />
                 </TouchableOpacity>
                 <Text style={s.pageInfo}>{page} / {totalPages}</Text>
                 <TouchableOpacity
                   style={[s.pageBtn, page >= totalPages && s.pageBtnDisabled]}
-                  onPress={() => load(page + 1)} disabled={page >= totalPages}
+                  onPress={() => loadAnnouncements(page + 1)} disabled={page >= totalPages}
                 >
                   <Ionicons name="chevron-forward" size={16} color={page >= totalPages ? c.textMuted : c.primary} />
                 </TouchableOpacity>
@@ -179,9 +278,7 @@ export default function AdminScreen() {
             <View style={s.card}>
               <View style={s.cardTop}>
                 <View style={[s.badge, { backgroundColor: badgeBg(item.kategori, c) }]}>
-                  <Text style={[s.badgeText, { color: badgeColor(item.kategori, c) }]}>
-                    {item.kategori}
-                  </Text>
+                  <Text style={[s.badgeText, { color: badgeColor(item.kategori, c) }]}>{item.kategori}</Text>
                 </View>
                 <Text style={s.dateText}>
                   {new Date(item.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -202,23 +299,78 @@ export default function AdminScreen() {
             </View>
           )}
         />
+      ) : (
+        <FlatList
+          data={filteredCommunities}
+          keyExtractor={item => String(item.id)}
+          contentContainerStyle={s.list}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={s.center}>
+              <Text style={{ fontSize: 40 }}>👥</Text>
+              <Text style={s.emptyText}>{query ? 'Sonuç bulunamadı.' : 'Henüz topluluk yok.'}</Text>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <View style={s.commCard}>
+              <View style={s.commTop}>
+                {item.imageUrl ? (
+                  <Image source={{ uri: item.imageUrl }} style={s.commAvatar} />
+                ) : (
+                  <View style={[s.commAvatar, s.commAvatarPlaceholder]}>
+                    <Text style={s.commAvatarText}>{(item.name.trim().charAt(0) || '?').toUpperCase()}</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={s.commName} numberOfLines={1}>{item.name}</Text>
+                  {item.description ? (
+                    <Text style={s.commDesc} numberOfLines={1}>{item.description}</Text>
+                  ) : null}
+                  <View style={s.commMetaRow}>
+                    <Ionicons name="people" size={12} color={c.textMuted} />
+                    <Text style={s.commMeta}>{item.memberCount} üye</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={s.cardActions}>
+                <TouchableOpacity
+                  style={s.editBtn}
+                  onPress={() => navigation.navigate('EditCommunity', {
+                    id: item.id, name: item.name, description: item.description, imageUrl: item.imageUrl,
+                  })}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="create-outline" size={15} color={c.primary} />
+                  <Text style={[s.actionText, { color: c.primary }]}>Düzenle</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.deleteBtn} onPress={() => handleDeleteCommunity(item)} activeOpacity={0.8}>
+                  <Ionicons name="trash-outline" size={15} color={c.error} />
+                  <Text style={[s.actionText, { color: c.error }]}>Sil</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        />
       )}
 
-      {/* Create / Edit Modal */}
+      {/* ── Akıllı FAB (her zaman üstte, primary renk) ───────────── */}
+      <TouchableOpacity style={s.fab} onPress={handleFab} activeOpacity={0.85}>
+        <Ionicons name="add" size={30} color="#fff" />
+      </TouchableOpacity>
+
+      {/* ── Düzenleme Modalı ─────────────────────────────────────── */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={s.modalOverlay}>
             <View style={s.modal}>
-              {/* Modal Header */}
               <View style={s.modalHeader}>
-                <Text style={s.modalTitle}>{editId ? '✏️ Duyuruyu Düzenle' : '✨ Yeni Duyuru'}</Text>
+                <Text style={s.modalTitle}>✏️ Duyuruyu Düzenle</Text>
                 <TouchableOpacity onPress={() => setModal(false)} style={s.modalClose}>
                   <Ionicons name="close" size={20} color={c.text} />
                 </TouchableOpacity>
               </View>
 
               <ScrollView contentContainerStyle={s.modalBody} keyboardShouldPersistTaps="handled">
-                {/* Başlık */}
                 <Text style={s.formLabel}>Başlık *</Text>
                 <TextInput
                   style={s.formInput}
@@ -229,7 +381,6 @@ export default function AdminScreen() {
                   multiline
                 />
 
-                {/* Kategori */}
                 <Text style={s.formLabel}>Kategori *</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
                   <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -245,7 +396,6 @@ export default function AdminScreen() {
                   </View>
                 </ScrollView>
 
-                {/* İçerik */}
                 <Text style={s.formLabel}>İçerik *</Text>
                 <TextInput
                   style={[s.formInput, s.formTextarea]}
@@ -258,7 +408,6 @@ export default function AdminScreen() {
                 />
               </ScrollView>
 
-              {/* Modal Footer */}
               <View style={s.modalFooter}>
                 <TouchableOpacity style={s.cancelBtn} onPress={() => setModal(false)}>
                   <Text style={s.cancelBtnText}>İptal</Text>
@@ -269,8 +418,7 @@ export default function AdminScreen() {
                 >
                   {saving
                     ? <ActivityIndicator color="#fff" size="small" />
-                    : <Text style={s.saveBtnText}>{editId ? 'Güncelle' : 'Yayınla'}</Text>
-                  }
+                    : <Text style={s.saveBtnText}>Güncelle</Text>}
                 </TouchableOpacity>
               </View>
             </View>
@@ -281,14 +429,14 @@ export default function AdminScreen() {
   );
 }
 
-function badgeBg(kat: string, c: any) {
+function badgeBg(kat: string, c: ReturnType<typeof useColors>) {
   const k = kat.toLowerCase();
   if (k.includes('akademik')) return c.badge.akademik.bg;
   if (k.includes('spor'))     return c.badge.spor.bg;
   if (k.includes('sosyal'))   return c.badge.sosyal.bg;
   return c.badge.genel.bg;
 }
-function badgeColor(kat: string, c: any) {
+function badgeColor(kat: string, c: ReturnType<typeof useColors>) {
   const k = kat.toLowerCase();
   if (k.includes('akademik')) return c.badge.akademik.text;
   if (k.includes('spor'))     return c.badge.spor.text;
@@ -300,28 +448,45 @@ const makeStyles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.background },
 
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12,
     backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border,
   },
+  headerIcon: {
+    width: 40, height: 40, borderRadius: 12, backgroundColor: c.primary,
+    justifyContent: 'center', alignItems: 'center',
+  },
   headerTitle: { fontSize: 20, fontWeight: '800', color: c.text },
   headerSub: { fontSize: 13, color: c.textMuted, marginTop: 2 },
-  addBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: c.primary, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 8,
+
+  // ── Segmented control ──────────────────────────────────────────────────────
+  toggleWrap: {
+    flexDirection: 'row', backgroundColor: c.surfaceAlt, borderRadius: 12,
+    padding: 4, marginHorizontal: 16, marginTop: 12, gap: 4,
+    borderWidth: 1, borderColor: c.border,
   },
-  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  toggleBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 10, borderRadius: 9,
+  },
+  toggleBtnActive: {
+    backgroundColor: c.primary,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12, shadowRadius: 3, elevation: 2,
+  },
+  toggleText: { fontSize: 14, fontWeight: '700', color: c.textSecondary },
+  toggleTextActive: { color: '#fff' },
 
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    margin: 12, paddingHorizontal: 12, paddingVertical: 8,
+    marginHorizontal: 16, marginTop: 12, paddingHorizontal: 12, paddingVertical: 8,
     backgroundColor: c.surface, borderRadius: 10, borderWidth: 1, borderColor: c.border,
   },
   searchInput: { flex: 1, fontSize: 14, color: c.text, height: 26 },
 
-  list: { padding: 12, gap: 10, paddingBottom: 32 },
+  list: { padding: 12, gap: 10, paddingBottom: 96 },
 
+  // ── Duyuru kartı ───────────────────────────────────────────────────────────
   card: {
     backgroundColor: c.surface, borderRadius: 14, padding: 14,
     borderWidth: 1, borderColor: c.border, gap: 8,
@@ -345,6 +510,22 @@ const makeStyles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   actionText: { fontSize: 13, fontWeight: '600' },
 
+  // ── Topluluk kartı ─────────────────────────────────────────────────────────
+  commCard: {
+    backgroundColor: c.surface, borderRadius: 14, padding: 12,
+    borderWidth: 1, borderColor: c.border, gap: 10,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04, shadowRadius: 3, elevation: 2,
+  },
+  commTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  commAvatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: c.primaryLight },
+  commAvatarPlaceholder: { justifyContent: 'center', alignItems: 'center' },
+  commAvatarText: { fontSize: 19, fontWeight: '800', color: c.primary },
+  commName: { fontSize: 15, fontWeight: '700', color: c.text },
+  commDesc: { fontSize: 12.5, color: c.textSecondary, marginTop: 1 },
+  commMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  commMeta: { fontSize: 12, color: c.textMuted, fontWeight: '500' },
+
   pagination: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, paddingVertical: 16 },
   pageBtn: {
     width: 36, height: 36, borderRadius: 8, backgroundColor: c.surface,
@@ -356,15 +537,18 @@ const makeStyles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, padding: 32 },
   emptyText: { fontSize: 15, color: c.textMuted },
 
-  // Modal
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+  // ── Akıllı FAB ─────────────────────────────────────────────────────────────
+  fab: {
+    position: 'absolute', right: 20, bottom: 24,
+    width: 58, height: 58, borderRadius: 29,
+    backgroundColor: c.primary, justifyContent: 'center', alignItems: 'center',
+    shadowColor: c.primary, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 8, elevation: 8, zIndex: 10,
   },
-  modal: {
-    backgroundColor: c.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    maxHeight: '90%',
-  },
+
+  // ── Modal ──────────────────────────────────────────────────────────────────
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modal: { backgroundColor: c.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: 20, borderBottomWidth: 1, borderBottomColor: c.border,
@@ -375,16 +559,13 @@ const makeStyles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   modalBody: { padding: 20, gap: 4 },
-
   formLabel: { fontSize: 13, fontWeight: '600', color: c.textSecondary, marginBottom: 6 },
   formInput: {
     borderWidth: 1.5, borderColor: c.border, borderRadius: 10,
     paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 14, color: c.text, backgroundColor: c.surfaceAlt,
-    marginBottom: 16,
+    fontSize: 14, color: c.text, backgroundColor: c.surfaceAlt, marginBottom: 16,
   },
   formTextarea: { minHeight: 100, textAlignVertical: 'top' },
-
   catChip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
     backgroundColor: c.background, borderWidth: 1.5, borderColor: c.border,
@@ -392,20 +573,14 @@ const makeStyles = (c: ReturnType<typeof useColors>) => StyleSheet.create({
   catChipActive: { backgroundColor: c.primary, borderColor: c.primary },
   catChipText: { fontSize: 13, fontWeight: '600', color: c.textSecondary },
   catChipTextActive: { color: '#fff' },
-
   modalFooter: {
-    flexDirection: 'row', gap: 10, padding: 16,
-    borderTopWidth: 1, borderTopColor: c.border,
+    flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: c.border,
   },
   cancelBtn: {
     flex: 1, paddingVertical: 13, borderRadius: 12,
-    backgroundColor: c.background, borderWidth: 1, borderColor: c.border,
-    alignItems: 'center',
+    backgroundColor: c.background, borderWidth: 1, borderColor: c.border, alignItems: 'center',
   },
   cancelBtnText: { fontSize: 15, fontWeight: '600', color: c.textSecondary },
-  saveBtn: {
-    flex: 1, paddingVertical: 13, borderRadius: 12,
-    backgroundColor: c.primary, alignItems: 'center',
-  },
+  saveBtn: { flex: 1, paddingVertical: 13, borderRadius: 12, backgroundColor: c.primary, alignItems: 'center' },
   saveBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });

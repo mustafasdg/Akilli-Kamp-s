@@ -20,6 +20,9 @@ namespace SmartCampus.Infrastructure.Context
         public DbSet<TeacherSchedule> TeacherSchedules { get; set; }
         public DbSet<Message> Messages { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<Community> Communities { get; set; }
+        public DbSet<UserCommunity> UserCommunities { get; set; }
+        public DbSet<CommunityMessage> CommunityMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -168,6 +171,46 @@ namespace SmartCampus.Infrastructure.Context
             // Kullanicinin okunmamis bildirim sorgularini hizlandir
             modelBuilder.Entity<Notification>()
                 .HasIndex(n => new { n.UserId, n.IsRead });
+
+            // ---- Community iliskileri ----
+
+            // UserCommunity: bilesik birincil anahtar (UserId + CommunityId).
+            // Ayni kullanici ayni topluluga yalnizca bir kez uye olabilir.
+            modelBuilder.Entity<UserCommunity>()
+                .HasKey(uc => new { uc.UserId, uc.CommunityId });
+
+            // UserCommunity -> User (uye)
+            modelBuilder.Entity<UserCommunity>()
+                .HasOne(uc => uc.User)
+                .WithMany()
+                .HasForeignKey(uc => uc.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // UserCommunity -> Community
+            modelBuilder.Entity<UserCommunity>()
+                .HasOne(uc => uc.Community)
+                .WithMany()
+                .HasForeignKey(uc => uc.CommunityId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // CommunityMessage -> Community (topluluk silinince mesajlari da silinir)
+            modelBuilder.Entity<CommunityMessage>()
+                .HasOne(cm => cm.Community)
+                .WithMany()
+                .HasForeignKey(cm => cm.CommunityId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // CommunityMessage -> User (gonderen)
+            // Coklu cascade yolu olusmasin diye Restrict.
+            modelBuilder.Entity<CommunityMessage>()
+                .HasOne(cm => cm.User)
+                .WithMany()
+                .HasForeignKey(cm => cm.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Topluluk mesajlarini kronolojik cekmeyi hizlandiran index
+            modelBuilder.Entity<CommunityMessage>()
+                .HasIndex(cm => new { cm.CommunityId, cm.SentAt });
         }
     }
 }

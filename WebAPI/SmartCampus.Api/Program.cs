@@ -11,6 +11,7 @@ using SmartCampus.Domain.Entities;
 using SmartCampus.Infrastructure;
 using SmartCampus.Infrastructure.Context;
 using SmartCampus.Infrastructure.Persistence;
+using SmartCampus.Api.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,10 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Gerçek zamanlı topluluk sohbeti için SignalR
+builder.Services.AddSignalR();
+
 builder.Services
     .AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
@@ -59,6 +64,22 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
             ClockSkew = TimeSpan.Zero
         };
+
+        // SignalR: WebSocket'ler header gönderemediği için token'ı "access_token"
+        // query string'inden oku (yalnızca /hubs yollarında).
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -67,9 +88,12 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        // SignalR ile uyumlu: AllowCredentials + AllowAnyOrigin birlikte kullanılamadığı
+        // için origin'i dinamik olarak yansıtıyoruz.
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
@@ -82,7 +106,15 @@ using (var scope = app.Services.CreateScope())
     context.Database.Migrate();
 
     var passwordHasher = services.GetRequiredService<IPasswordHasher<User>>();
+
+    // Sahte akademisyenleri temizleyip gerçek ISUBÜ kadrosunu yükle.
+    // Ders programı tohumlaması bu hocalara göre kurulduğundan DbInitializer'dan ÖNCE çalışmalı.
+    await DatabaseSeeder.SeedTeachersAsync(context, passwordHasher);
+
     DbInitializer.Initialize(context, passwordHasher);
+
+    // Topluluklar tablosu boşsa demo topluluklarını otomatik tohumla
+    await DatabaseSeeder.SeedCommunitiesAsync(context);
 }
 
 if (app.Environment.IsDevelopment())
@@ -98,5 +130,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<CommunityHub>("/hubs/community");
 
 app.Run();

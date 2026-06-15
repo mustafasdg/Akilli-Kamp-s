@@ -10,7 +10,7 @@ namespace SmartCampus.Infrastructure.Persistence
         public static void Initialize(ApplicationDbContext context, IPasswordHasher<User> passwordHasher)
         {
             SeedUsers(context, passwordHasher);
-            SeedTeachers(context, passwordHasher);
+            // Not: Akademisyen kadrosu artık DatabaseSeeder.SeedTeachersAsync ile (bu çağrıdan önce) yükleniyor.
             SeedTeacherSchedules(context);
             SeedLocations(context);
             SeedAnnouncements(context);
@@ -52,161 +52,94 @@ namespace SmartCampus.Infrastructure.Persistence
             }
         }
 
-        private static void SeedTeachers(ApplicationDbContext context, IPasswordHasher<User> passwordHasher)
-        {
-            var teachers = new[]
-            {
-                new
-                {
-                    Name           = "Dr. Öğr. Üyesi Cevriye ALTINTAŞ",
-                    Email          = "cevriye.altintas@smartcampus.local",
-                    Bio            = "Bilgisayar Mühendisliği alanında yapay zeka ve makine öğrenmesi üzerine araştırmalar yürütmektedir. 2015 yılından bu yana ISUBÜ'de görev yapmaktadır.",
-                    OfficeLocation = "100. Yıl Binası, Oda: B-204",
-                    ResearchAreas  = "Yapay Zeka, Makine Öğrenmesi, Derin Öğrenme, Doğal Dil İşleme",
-                    RoomNumber     = "B-204",
-                    Specialty      = "Yapay Zeka ve Makine Öğrenmesi",
-                },
-                new
-                {
-                    Name           = "Dr. Öğr. Üyesi Serdar PAÇACI",
-                    Email          = "serdar.pacaci@smartcampus.local",
-                    Bio            = "Yazılım Mühendisliği ve sistem güvenliği konularında uzmanlaşmış olan Dr. Paçaci, çeşitli ulusal ve uluslararası projelerde yer almaktadır.",
-                    OfficeLocation = "100. Yıl Binası, Oda: B-207",
-                    ResearchAreas  = "Yazılım Mühendisliği, Siber Güvenlik, Bulut Bilişim, IoT",
-                    RoomNumber     = "B-207",
-                    Specialty      = "Siber Güvenlik ve Yazılım Mühendisliği",
-                },
-            };
-
-            foreach (var t in teachers)
-            {
-                var existing = context.Users.FirstOrDefault(u => u.Email == t.Email);
-                if (existing is null)
-                {
-                    var user = new User
-                    {
-                        Name           = t.Name,
-                        Email          = t.Email,
-                        Role           = "teacher",
-                        Bio            = t.Bio,
-                        OfficeLocation = t.OfficeLocation,
-                        ResearchAreas  = t.ResearchAreas,
-                        RoomNumber     = t.RoomNumber,
-                        Specialty      = t.Specialty,
-                        CreatedAt      = DateTime.UtcNow,
-                    };
-                    user.PasswordHash = passwordHasher.HashPassword(user, "123456");
-                    context.Users.Add(user);
-                }
-                else if (existing.Bio is null || existing.Specialty is null)
-                {
-                    existing.Bio            = t.Bio;
-                    existing.OfficeLocation = t.OfficeLocation;
-                    existing.ResearchAreas  = t.ResearchAreas;
-                    existing.RoomNumber     = t.RoomNumber;
-                    existing.Specialty      = t.Specialty;
-                    context.Users.Update(existing);
-                }
-            }
-
-            context.SaveChanges();
-        }
-
         private static void SeedTeacherSchedules(ApplicationDbContext context)
         {
-            // Demo sıfırlama: her başlangıçta tamamen sil ve yeniden doldur.
-            context.Database.ExecuteSqlRaw("DELETE FROM Appointments");
-            context.Database.ExecuteSqlRaw("DELETE FROM TeacherSchedules");
+            // Demo sıfırlama: ERKEN ÇIKIŞ (Any) YOK — her açılışta mevcut tüm ders programlarını
+            // ZORLA temizleyip güncel @gmail.com kadrosuna göre yeniden doldururuz.
+            // FK sırası önemli: Appointments.ScheduleId → TeacherSchedule olduğundan önce
+            // randevular, sonra programlar silinmelidir.
+            context.Appointments.RemoveRange(context.Appointments);
+            context.SaveChanges();
 
-            var altintas = context.Users.FirstOrDefault(u => u.Email == "cevriye.altintas@smartcampus.local");
-            var pacaci   = context.Users.FirstOrDefault(u => u.Email == "serdar.pacaci@smartcampus.local");
+            context.TeacherSchedules.RemoveRange(context.TeacherSchedules);
+            context.SaveChanges();
 
-            // Dr. Cevriye ALTINTAŞ ders programı
-            if (altintas is not null)
+            // Hoca e-postasına göre ders / blok atamaları:
+            // (E-posta, Başlık, Gün, Başlangıç saati, Bitiş saati [hariç], Konum)
+            // Her blok saatlik dilimlere bölünüp Type = Ders (meşgul) olarak eklenir.
+            var assignments = new (string Email, string Title, DayOfWeek Day, int StartHour, int EndHour, string Location)[]
             {
-                // Sabit dersler (Ders tipi — öğrenci randevusu alınamaz)
-                var dersAltintas = new[]
-                {
-                    // Pazartesi + Çarşamba 09-11 → Veri Madenciliği
-                    (DayOfWeek.Monday,    9, "Veri Madenciliği", "A-202"),
-                    (DayOfWeek.Monday,   10, "Veri Madenciliği", "A-202"),
-                    (DayOfWeek.Wednesday, 9, "Veri Madenciliği", "A-202"),
-                    (DayOfWeek.Wednesday,10, "Veri Madenciliği", "A-202"),
-                    // Salı + Perşembe 13-15 → Makine Öğrenmesi
-                    (DayOfWeek.Tuesday,  13, "Makine Öğrenmesi", "B-105"),
-                    (DayOfWeek.Tuesday,  14, "Makine Öğrenmesi", "B-105"),
-                    (DayOfWeek.Thursday, 13, "Makine Öğrenmesi", "B-105"),
-                    (DayOfWeek.Thursday, 14, "Makine Öğrenmesi", "B-105"),
-                };
+                // ── Öğretim üyeleri: uzmanlıklarına uygun 2'şer ders ──────────────────────
+                ("tuncayaydogan@gmail.com",   "Veri Yapıları",                         DayOfWeek.Monday,     9, 12, "A-301"),
+                ("tuncayaydogan@gmail.com",   "Algoritmalar",                          DayOfWeek.Wednesday, 13, 16, "A-301"),
 
-                foreach (var (day, h, name, loc) in dersAltintas)
-                    context.TeacherSchedules.Add(new TeacherSchedule
+                ("ahmetsuzen@gmail.com",      "Bilgisayar Ağları",                     DayOfWeek.Tuesday,    9, 12, "Lab C-303"),
+                ("ahmetsuzen@gmail.com",      "Siber Güvenlik Temelleri",              DayOfWeek.Thursday,  13, 16, "Lab C-303"),
+
+                ("sinanuguz@gmail.com",       "Yapay Zeka",                            DayOfWeek.Monday,    13, 16, "B-202"),
+                ("sinanuguz@gmail.com",       "Makine Öğrenmesine Giriş",              DayOfWeek.Wednesday,  9, 12, "B-202"),
+
+                ("serapbakioglu@gmail.com",   "İleri Algoritma Analizi",               DayOfWeek.Tuesday,   13, 16, "A-305"),
+                ("serapbakioglu@gmail.com",   "Otomata Teorisi",                       DayOfWeek.Thursday,   9, 12, "A-305"),
+
+                ("kiyaskayaalp@gmail.com",    "Sayısal Sistem Tasarımı",               DayOfWeek.Monday,     9, 12, "Lab D-101"),
+                ("kiyaskayaalp@gmail.com",    "Mikroişlemciler",                       DayOfWeek.Friday,    13, 16, "Lab D-101"),
+
+                ("burhanduman@gmail.com",     "Bilgisayar Mimarisi",                   DayOfWeek.Wednesday,  9, 12, "Lab D-102"),
+                ("burhanduman@gmail.com",     "Lojik Devre Tasarımı",                  DayOfWeek.Friday,     9, 12, "Lab D-102"),
+
+                ("cevriyealtintas@gmail.com", "Web Programlama",                       DayOfWeek.Tuesday,    9, 12, "Lab E-201"),
+                ("cevriyealtintas@gmail.com", "Kullanıcı Deneyimi Tasarımı (UX)",      DayOfWeek.Thursday,  13, 16, "Lab E-201"),
+
+                ("serdarpacaci@gmail.com",    "Yazılım Mühendisliği",                  DayOfWeek.Monday,    13, 16, "A-105"),
+                ("serdarpacaci@gmail.com",    "Dağıtık Sistemler",                     DayOfWeek.Wednesday, 13, 16, "A-105"),
+
+                // ── Araştırma görevlileri: ders YOK; haftanın 3 gününde staj/lab blokları ──
+                ("rafetgozbasi@gmail.com",    "Staj İşlemleri ve Öğrenci Görüşmeleri", DayOfWeek.Monday,     9, 12, "Lab F-101"),
+                ("rafetgozbasi@gmail.com",    "Laboratuvar Koordinasyonu",             DayOfWeek.Wednesday, 13, 16, "Lab F-101"),
+                ("rafetgozbasi@gmail.com",    "Staj İşlemleri ve Öğrenci Görüşmeleri", DayOfWeek.Friday,     9, 12, "Lab F-101"),
+
+                ("huseyinzengin@gmail.com",   "Laboratuvar Koordinasyonu",             DayOfWeek.Tuesday,    9, 12, "Lab F-102"),
+                ("huseyinzengin@gmail.com",   "Staj İşlemleri ve Öğrenci Görüşmeleri", DayOfWeek.Thursday,  13, 16, "Lab F-102"),
+                ("huseyinzengin@gmail.com",   "Staj İşlemleri ve Öğrenci Görüşmeleri", DayOfWeek.Friday,    13, 16, "Lab F-102"),
+            };
+
+            var weekdays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday };
+
+            // İlgili hocaları e-postadan tek sorguda çek
+            var emails   = assignments.Select(a => a.Email).Distinct().ToList();
+            var teachers = context.Users.Where(u => emails.Contains(u.Email)).ToList();
+
+            foreach (var teacher in teachers)
+            {
+                // Bu hocanın meşgul (ders/blok) saat dilimleri
+                var blocks = assignments.Where(a => a.Email == teacher.Email).ToList();
+                var busy   = new HashSet<(DayOfWeek Day, int Hour)>();
+
+                foreach (var b in blocks)
+                    for (int h = b.StartHour; h < b.EndHour; h++)
                     {
-                        TeacherId     = altintas.ID,
-                        DayOfWeek     = day,
-                        StartTime     = new TimeOnly(h, 0),
-                        EndTime       = new TimeOnly(h + 1, 0),
-                        IsAvailable   = false,
-                        Type          = ScheduleType.Ders,
-                        CourseName    = name,
-                        ClassLocation = loc,
-                    });
+                        context.TeacherSchedules.Add(new TeacherSchedule
+                        {
+                            TeacherId     = teacher.ID,
+                            DayOfWeek     = b.Day,
+                            StartTime     = new TimeOnly(h, 0),
+                            EndTime       = new TimeOnly(h + 1, 0),
+                            IsAvailable   = false,
+                            Type          = ScheduleType.Ders,
+                            CourseName    = b.Title,
+                            ClassLocation = b.Location,
+                        });
+                        busy.Add((b.Day, h));
+                    }
 
-                // Kalan saatler Müsait
-                var weekdays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday };
-                var busyAltintas = dersAltintas.ToLookup(x => (x.Item1, x.Item2));
+                // Kalan hafta içi saatler (09:00–17:00) → Müsait (öğrenci randevusuna açık)
                 foreach (var day in weekdays)
                     for (int h = 9; h <= 16; h++)
-                        if (!busyAltintas.Contains((day, h)))
+                        if (!busy.Contains((day, h)))
                             context.TeacherSchedules.Add(new TeacherSchedule
                             {
-                                TeacherId   = altintas.ID,
-                                DayOfWeek   = day,
-                                StartTime   = new TimeOnly(h, 0),
-                                EndTime     = new TimeOnly(h + 1, 0),
-                                IsAvailable = true,
-                                Type        = ScheduleType.Müsait,
-                            });
-            }
-
-            // Dr. Serdar PAÇACI ders programı
-            if (pacaci is not null)
-            {
-                var dersPacaci = new[]
-                {
-                    // Salı + Perşembe 09-11 → Siber Güvenlik
-                    (DayOfWeek.Tuesday,   9, "Siber Güvenlik", "Lab C-303"),
-                    (DayOfWeek.Tuesday,  10, "Siber Güvenlik", "Lab C-303"),
-                    (DayOfWeek.Thursday,  9, "Siber Güvenlik", "Lab C-303"),
-                    (DayOfWeek.Thursday, 10, "Siber Güvenlik", "Lab C-303"),
-                    // Pazartesi + Çarşamba 14-16 → Yazılım Geliştirme
-                    (DayOfWeek.Monday,   14, "Yazılım Geliştirme", "A-105"),
-                    (DayOfWeek.Monday,   15, "Yazılım Geliştirme", "A-105"),
-                    (DayOfWeek.Wednesday,14, "Yazılım Geliştirme", "A-105"),
-                    (DayOfWeek.Wednesday,15, "Yazılım Geliştirme", "A-105"),
-                };
-
-                foreach (var (day, h, name, loc) in dersPacaci)
-                    context.TeacherSchedules.Add(new TeacherSchedule
-                    {
-                        TeacherId     = pacaci.ID,
-                        DayOfWeek     = day,
-                        StartTime     = new TimeOnly(h, 0),
-                        EndTime       = new TimeOnly(h + 1, 0),
-                        IsAvailable   = false,
-                        Type          = ScheduleType.Ders,
-                        CourseName    = name,
-                        ClassLocation = loc,
-                    });
-
-                var weekdays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday };
-                var busyPacaci = dersPacaci.ToLookup(x => (x.Item1, x.Item2));
-                foreach (var day in weekdays)
-                    for (int h = 9; h <= 16; h++)
-                        if (!busyPacaci.Contains((day, h)))
-                            context.TeacherSchedules.Add(new TeacherSchedule
-                            {
-                                TeacherId   = pacaci.ID,
+                                TeacherId   = teacher.ID,
                                 DayOfWeek   = day,
                                 StartTime   = new TimeOnly(h, 0),
                                 EndTime     = new TimeOnly(h + 1, 0),
@@ -370,6 +303,8 @@ namespace SmartCampus.Infrastructure.Persistence
 
             var eventsList = new[]
             {
+                // Gelecek tarihli etkinlik: "Yaklaşan Etkinlikler" vitrininin boş kalmaması için.
+                new Event { Tarih = new DateTime(2026, 7, 15, 10, 0, 0), Baslik = "15 Temmuz Şehitleri Anma Günü", Icerik = "15 Temmuz Demokrasi ve Millî Birlik Günü kapsamında şehitlerimizi anma programı düzenlenecektir. Tüm öğrenci ve personelimiz davetlidir.", Kategori = "Anma" },
                 new Event { Tarih = new DateTime(2026, 6, 12, 10, 0, 0), Baslik = "2025-2026 Mezuniyet Töreni 12 Haziran 2026 Cuma Günü Gerçekleşecektir", Icerik = "Mezuniyet töreni detayları, kep fırlatma saati ve mezuniyet alanına dair bilgilendirmeler.", Kategori = "Tören" },
                 new Event { Tarih = new DateTime(2026, 5, 21, 14, 0, 0), Baslik = "Üniversitemizin 8. Kuruluş Yılı Etkinlikleri Akademik Personel Ödül ve Biniş Giyme Töreni - İdari Personel Ödül Töreni", Icerik = "8. kuruluş yıldönümü kapsamında akademik ve idari personellerimizin ödüllendirilmesi töreni düzenlenecektir.", Kategori = "Etkinlik" },
                 new Event { Tarih = new DateTime(2026, 5, 14, 10, 0, 0), Baslik = "Orman Oyunları Olimpiyatı 2026", Icerik = "Orman Fakültemiz tarafından her yıl geleneksel olarak düzenlenen olimpiyat etkinlikleri bu yıl da coşkuyla gerçekleştirilecektir.", Kategori = "Spor" },

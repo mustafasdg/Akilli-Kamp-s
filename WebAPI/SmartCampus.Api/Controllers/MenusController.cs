@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartCampus.Application.DTOs.Common;
+using SmartCampus.Application.DTOs.Menu;
 using SmartCampus.Application.Interfaces;
 using SmartCampus.Domain.Entities;
 
@@ -17,6 +18,42 @@ namespace SmartCampus.Api.Controllers
         public MenusController(IUnitOfWork uow)
         {
             _uow = uow;
+        }
+
+        [HttpGet("today")]
+        [AllowAnonymous]
+        public ActionResult<DailyMenuDto> GetTodayMenu()
+        {
+            // Hafta sonu → yemekhane kapalı; menü yerine bilgilendirme mesajı dön.
+            if (DateTime.Now.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+            {
+                return Ok(new DailyMenuDto
+                {
+                    Id = 0,
+                    Date = DateTime.Today,
+                    TotalCalories = 0,
+                    IsClosed = true,
+                    ClosingMessage = "Hafta sonu tatili nedeniyle yemekhane kapalıdır.",
+                    Items = []
+                });
+            }
+
+            // Hafta içi → normal (mock) menü.
+            var today = new DailyMenuDto
+            {
+                Id = 1,
+                Date = DateTime.Today,
+                TotalCalories = 950,
+                IsClosed = false,
+                Items =
+                [
+                    new MenuItemDto { Id = 1, Name = "Mercimek Çorbası",  Category = "Çorba",     Calories = 120 },
+                    new MenuItemDto { Id = 2, Name = "İzmir Köfte",       Category = "Ana Yemek", Calories = 380 },
+                    new MenuItemDto { Id = 3, Name = "Pilav",             Category = "Ara Sıcak", Calories = 320 },
+                    new MenuItemDto { Id = 4, Name = "Sütlaç",            Category = "Tatlı",     Calories = 130 },
+                ]
+            };
+            return Ok(today);
         }
 
         [HttpGet]

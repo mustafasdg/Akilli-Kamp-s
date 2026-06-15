@@ -20,6 +20,10 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import MyAppointmentsScreen from '../screens/MyAppointmentsScreen';
 import TeacherMessagesScreen from '../screens/TeacherMessagesScreen';
 import AiAssistantScreen from '../screens/AiAssistantScreen';
+import CreateCommunityScreen from '../screens/admin/CreateCommunityScreen';
+import CommunityChatScreen from '../screens/CommunityChatScreen';
+import CreateAnnouncementScreen from '../screens/admin/CreateAnnouncementScreen';
+import EditCommunityScreen from '../screens/admin/EditCommunityScreen';
 import { Announcement, Teacher } from '../types/models';
 
 export type AuthStackParamList = {
@@ -43,6 +47,10 @@ export type AppRootParamList = {
   Notifications: undefined;
   MyAppointments: undefined;
   AiAssistant: undefined;
+  CreateCommunity: undefined;
+  CreateAnnouncement: undefined;
+  EditCommunity: { id: number; name: string; description: string; imageUrl?: string };
+  CommunityChat: { communityId: number; name: string };
 };
 
 type RootStackParamList = {
@@ -69,6 +77,7 @@ const HEADER_THEME = {
   headerTintColor: '#FFFFFF',
   headerTitleStyle: { fontWeight: '700' as const, fontSize: 17 },
   headerBackTitle: '',
+  headerBackTitleVisible: false,
   animation: 'slide_from_right' as const,
 };
 
@@ -139,6 +148,26 @@ function AppNavigator() {
       <AppRootStack.Screen
         name="AiAssistant"
         component={AiAssistantScreen}
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <AppRootStack.Screen
+        name="CreateCommunity"
+        component={CreateCommunityScreen}
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <AppRootStack.Screen
+        name="CreateAnnouncement"
+        component={CreateAnnouncementScreen}
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <AppRootStack.Screen
+        name="EditCommunity"
+        component={EditCommunityScreen}
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <AppRootStack.Screen
+        name="CommunityChat"
+        component={CommunityChatScreen}
         options={{ headerShown: false, animation: 'slide_from_right' }}
       />
     </AppRootStack.Navigator>

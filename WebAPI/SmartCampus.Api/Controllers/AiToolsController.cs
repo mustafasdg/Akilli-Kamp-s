@@ -86,7 +86,7 @@ namespace SmartCampus.Api.Controllers
                     Description     = "Yapay zeka asistanı aracılığıyla oluşturuldu.",
                 }, ct);
 
-                return Ok(new { message = "Randevu başarıyla oluşturuldu.", appointmentId = appointment.ID });
+                return Ok(new { message = "Randevu talebiniz hocaya iletildi, hocanın onayı bekleniyor.", appointmentId = appointment.ID });
             }
             catch (InvalidOperationException ex)
             {
